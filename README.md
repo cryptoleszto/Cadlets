@@ -88,13 +88,16 @@ one standing about looks around, so nobody freezes between beats.
 ## What to watch for
 
 1. **Bootstrap.** Within the first ~40–200 beats: "THE CADENCE HAS LEARNED: APPLES END HUNGER",
-   then baths, then play. The amber learning line climbs above random chance (1 in 8). Later,
-   often: "WHEN NOTHING PRESSES, REST".
+   then baths, then play, then "THE NIGHT IS FOR SLEEP". The amber learning line climbs above the
+   dashed line: what random choices would score in exactly the same situations. Later, often:
+   "WHEN NOTHING PRESSES, REST".
 2. **Growth comes from competence.** Mitosis needs every need low for a stretch, which chance
    behaviour can't manage. In the headless comparison below, random actions never evolve.
 3. **Witnessed failure → local repair.** At beat 600 (stage 3+) or from the menu, the code rewrites
-   itself and a third of the fruit trees turn corrupt. Poisonings spike (purple bars), then fall once
-   the Cadence learns to tell corrupt fruit apart, while it keeps eating good fruit.
+   itself and a third of the fruit trees turn corrupt for a day. Poisonings spike (purple bars), then
+   fall once the Cadence learns to tell corrupt fruit apart, while it keeps eating good fruit. Then the
+   code repairs itself. (A Cadlet's body walks to the nearest food, so with permanent corruption many
+   could reach only corrupt trees and starved; healing after a day cut starvation by a third.)
 4. **Your hand.** Pet and feed them and they learn to come to you. Throw or kill them and they
    learn to stop coming and to flee when afraid. The MIND panel's "what the Cadence thinks of you"
    shows what Cadlets near your hand actually do, next to what the Cadence privately imagines.
@@ -112,7 +115,7 @@ policy as the control. Results over 900 beats, 6 seeds:
 |---|---|---|
 | First evolution (8 alive) | beat 272–479, all 6 seeds | beat 437–817 in 3 seeds, never in 3 |
 | Lessons | apples ~36–170, baths ~36–190, play ~70–700, rest ~380–610 (half the runs), corrupt fruit ~660–770 | — |
-| Right remedy when a need presses | peaks 0.39–0.46, then ~0.2–0.35 under crowding | ~0.12–0.15 |
+| Right remedy when a need presses (any pressing need counts) | ~0.26–0.31, about 1.5–1.7× the chance line | exactly on the chance line (~0.19–0.25) |
 | Beats spent resting | 35% | 18% |
 
 Simulated players (`tools/` harness, 900 beats, 3 seeds each), measuring what Cadlets that

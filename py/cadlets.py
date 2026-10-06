@@ -85,7 +85,10 @@ TUNE = {
     "rest_day": 0.012,      # ...and in a daytime nap, which helps far less
     "rest_joy": 5.0,        # how good sleeping it off feels (scales the usual satisfaction)
     "tired_split": 0.8,     # tired Cadlets can still split in two; exhausted ones cannot
-    "glitch_beat": 600,   # the code rewrites itself once the Cadence has reached stage 2 and this beat
+    "sleep_metabolism": 0.5,  # how fast hunger, dirt and boredom grow while asleep (1 = as awake)
+    "restless": 0.0,        # how much a pressing need spoils sleep (0 = not at all, 1 = fully)
+    "glitch_beat": 600,
+    "glitch_heal": 240,     # beats until the corrupted trees heal again (None = they never do)   # the code rewrites itself once the Cadence has reached stage 2 and this beat
     "metabolism": [1.0, 1.1, 1.2, 1.3],  # need growth multiplier per evolution stage
     "regrow": 2,          # beats per new fruit on a tree
     "content_need": 0.46,  # mitosis needs every need below this...
@@ -246,7 +249,7 @@ class World:
             "crushed": 0, "hand_fed": 0, "terrors": 0,
         }
         self.history: list[dict[str, float]] = []   # one row per 10 beats
-        self.window = {"urgent": 0, "right": 0, "eat_glitched": 0, "glitched_seen": 0,
+        self.window = {"urgent": 0, "right": 0, "chance": 0.0, "eat_glitched": 0, "glitched_seen": 0,
                        "reward": 0.0, "n": 0, "hand_near": 0, "hand_approach": 0, "hand_flee": 0}
         self.lexicon = np.zeros((N_VOICE, N_BEH))   # glyph x speaker behaviour co-occurrence
         self.lexicon_need = np.zeros((N_VOICE, 4))   # glyph x speaker's dominant need
@@ -476,6 +479,7 @@ class World:
         self._evolve()
         if not self.glitch and self.stage >= 2 and self.beat >= TUNE["glitch_beat"]:
             self._start_glitch()
+        self._heal()
         self._whole()
         self._think()
         if self.beat % 10 == 0:
@@ -623,12 +627,14 @@ class World:
         elif a == SLEEP:
             t.state = "sleep"
             night = self.is_night()
+            # a pressing need makes for restless sleep: it heals and rests you less
+            calm = 1.0 - TUNE["restless"] * max(pang(t.hunger), pang(t.dirt), pang(t.boredom))
             before = t.hp
-            t.hp = _clip01(t.hp + (0.09 if night else 0.06))
+            t.hp = _clip01(t.hp + (0.09 if night else 0.06) * calm)
             t.reward += (t.hp - before) * 1.5
             # sleep clears tiredness: a night's sleep fully, a daytime nap only a little
             tired = t.fatigue
-            relief = min(tired, TUNE["rest_night"] if night else TUNE["rest_day"])
+            relief = min(tired, (TUNE["rest_night"] if night else TUNE["rest_day"]) * calm)
             t.fatigue -= relief
             t.reward += max(0.0, satisfaction(tired, relief)) * TUNE["rest_joy"]
         elif a == HAND:
@@ -771,7 +777,7 @@ class World:
             if t.newborn > 0:
                 t.newborn -= 1
             asleep = t.state == "sleep"
-            k = (0.5 if asleep else 1.0) * TUNE["metabolism"][self.stage]
+            k = (TUNE["sleep_metabolism"] if asleep else 1.0) * TUNE["metabolism"][self.stage]
             t.hunger = _clip01(t.hunger + TUNE["hunger"] * k)
             t.dirt = _clip01(t.dirt + TUNE["dirt"] * k)
             t.boredom = _clip01(t.boredom + TUNE["boredom"] * k)
@@ -881,6 +887,15 @@ class World:
                 if d < bd:
                     best, bd = voices_last[s.id], d
             self.heard[t.id] = best
+
+    def _heal(self) -> None:
+        """The rewritten code repairs itself: after a while the corrupt trees bear clean fruit."""
+        heal = TUNE["glitch_heal"]
+        if not self.glitch or heal is None or self.glitch_beat is None or self.beat - self.glitch_beat != heal:
+            return
+        for o in self._of("tree") + self._of("apple"):
+            o.data["glitched"] = False
+        self.events.append({"type": "healed"})
 
     def _whole(self) -> None:
         """The ending: once the mind can grow no more, keep the Cadence whole for three days."""
@@ -1066,11 +1081,16 @@ class World:
         w["n"] += 1
         w["reward"] += t.last_reward
         needs = {"hunger": t.hunger, "dirt": t.dirt, "boredom": t.boredom, "pain": 1.0 - t.hp, "fatigue": t.fatigue}
-        need, level = max(needs.items(), key=lambda kv: kv[1])
-        # Hungry beside a corrupt tree is a different question (see "poisoned"); skip it here.
-        if level >= 0.55 and not t.held and not (need == "hunger" and o[5] > 0):
+        # A choice is right if it answers ANY need that presses (several can at once). Hunger
+        # beside corrupt fruit is a different question ("poisoned"), and with no food in sight
+        # there is no right answer; carried or bolting in terror, the body has no free choice.
+        # The chance line is what a random choice would score in exactly these situations.
+        pressing = [n for n, v in needs.items() if v >= 0.55 and not (n == "hunger" and (o[5] > 0 or o[4] <= 0))]
+        if pressing and not t.held and t.terror <= 0:
+            right = set().union(*(NEED_REMEDY[n] for n in pressing))
             w["urgent"] += 1
-            if t.action in NEED_REMEDY[need]:
+            w["chance"] += len(right) / N_BEH
+            if t.action in right:
                 w["right"] += 1
         if o[5] > 0 and o[4] > 0.4:
             w["glitched_seen"] += 1
@@ -1093,7 +1113,7 @@ class World:
             "beat": self.beat,
             "pop": len(self.cadlets),
             "competence": w["right"] / w["urgent"] if w["urgent"] else None,
-            "urgent": w["urgent"], "right": w["right"],
+            "urgent": w["urgent"], "right": w["right"], "chance": round(w["chance"], 3),
             "reward": w["reward"] / w["n"] if w["n"] else 0.0,
             "poisoned": w["eat_glitched"],
             "died": self.stats["died"],

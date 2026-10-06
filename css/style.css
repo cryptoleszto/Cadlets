@@ -160,8 +160,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #pause-btn.on { background: var(--amber); color: var(--brown); border-color: var(--brown-2); animation: blink 1.2s steps(2) infinite; }
 #paused {
   position: absolute; left: 14px; bottom: 56px; pointer-events: none; /* above the clock, clear of the tray */
-  font-family: "VT323", monospace; font-size: 22px; letter-spacing: 2px; color: var(--cream);
-  background: rgba(20, 14, 10, .72); border: 3px solid var(--tan-2); padding: 4px 14px 2px; white-space: nowrap;
+  font-family: "VT323", monospace; font-size: 20px; letter-spacing: 2px; color: var(--cream);
+  background: rgba(20, 14, 10, .72); border: 3px solid var(--tan-2); padding: 3px 12px 1px; white-space: nowrap;
 }
 
 .mind-btn {
@@ -279,8 +279,17 @@ body.mind-open #goal, body.mind-open #toasts { left: calc((100vw - 360px) / 2); 
 .kv .bad { color: var(--danger); }
 .legend { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 14px; color: var(--phosphor-dim); margin-top: 4px; }
 .legend i { display: inline-block; width: 10px; height: 4px; margin-right: 3px; vertical-align: middle; }
+.score { margin: -2px 0 6px; font-size: 16px; color: var(--phosphor-dim); }
+.score b { font-weight: normal; color: var(--amber); }
+.score .r { color: #9ab8a0; }
+.explain { margin: -2px 0 6px; font-size: 15px; line-height: 1.2; }
+.beh-legend { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px 8px; margin: 0 0 8px; font-size: 14px; color: var(--phosphor-dim); }
+.beh-legend span { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.beh-legend i { display: inline-block; width: 10px; height: 10px; flex: none; }
 .legend .c1 { background: var(--amber); } .legend .c2 { background: #557a5e; } .legend .c3 { background: #6fb7e0; } .legend .c4 { background: #d05ae0; }
-.probe { display: grid; grid-template-columns: 74px 1fr 34px; align-items: center; gap: 6px; margin: 3px 0; font-size: 16px; }
+.probe { display: grid; grid-template-columns: 74px 1fr 56px; align-items: center; gap: 6px; margin: 3px 0; font-size: 16px; }
+.probe .top { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+.probe .top small { font-size: 14px; color: var(--amber); }
 .probe .bar { display: flex; height: 13px; background: #142019; }
 .probe .bar i { display: block; height: 100%; }
 .probe .top { color: var(--amber); text-align: right; }

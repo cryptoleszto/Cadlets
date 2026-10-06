@@ -242,48 +242,86 @@ function hiCanvas(c) {
   return { g, w: lw, h: lh };
 }
 
+// How often a pressing need gets the right answer, next to what random choices would score
+// in exactly the same situations (the sim counts both). Pooled over 60 beats.
 function chart(snap) {
   const { g, w, h } = hiCanvas($("#m-chart"));
   const hist = snap.history || [];
   g.clearRect(0, 0, w, h);
   g.fillStyle = "#0e1812"; g.fillRect(0, 0, w, h);
-  g.strokeStyle = "#1f3326"; g.lineWidth = 1;
-  for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(0, (h * i) / 4); g.lineTo(w, (h * i) / 4); g.stroke(); }
-  g.fillStyle = "#4f9a5a"; g.font = "11px VT323, monospace";
-  if (!hist.length) { g.fillText("THE FIRST POINT APPEARS AT BEAT 10", 6, h / 2); return; }
-  const n = Math.max(30, hist.length);
-  const X = (i) => (i / (n - 1)) * (w - 2) + 1;
-  g.fillStyle = "rgba(208, 90, 224, .7)";
-  hist.forEach((p, i) => { if (p.poisoned) g.fillRect(X(i) - 1, h - Math.min(h, p.poisoned * 3), 2, Math.min(h, p.poisoned * 3)); });
-  // random chance: one behaviour in eight
-  g.strokeStyle = "#557a5e"; g.setLineDash([3, 3]);
-  g.beginPath(); g.moveTo(0, h - 0.125 * h); g.lineTo(w, h - 0.125 * h); g.stroke(); g.setLineDash([]);
-  const draw = (values, color, scale) => {
-    g.strokeStyle = color; g.lineWidth = 1.6; g.beginPath();
-    let started = false;
-    values.forEach((v, i) => {
-      if (v === null || v === undefined || Number.isNaN(v)) return;
-      const y = h - Math.max(0, Math.min(1, v / scale)) * (h - 4) - 2;
-      if (!started) { g.moveTo(X(i), y); started = true; } else g.lineTo(X(i), y);
-    });
-    g.stroke();
-  };
-  // pooled over the last 60 beats, so a lone Cadlet's few decisions do not swing it
-  const competence = hist.map((_, i) => {
+  g.font = "11px VT323, monospace";
+  const pooled = hist.map((_, i) => {
     const win = hist.slice(Math.max(0, i - 5), i + 1);
     const urgent = win.reduce((a, q) => a + (q.urgent ?? 0), 0);
+    if (urgent < 6) return null;
     const right = win.reduce((a, q) => a + (q.right ?? 0), 0);
-    return urgent >= 6 ? right / urgent : null;
+    // older saves did not count chance; one choice in eight is what it was before
+    const chance = win.reduce((a, q) => a + (q.chance ?? (q.urgent ?? 0) / 8), 0);
+    return { you: right / urgent, chance: chance / urgent };
   });
-  draw(hist.map((p) => p.pop), "#6fb7e0", 48);
-  draw(competence, "#ffcf5a", 1);
-  g.fillStyle = "#4f9a5a";
-  g.fillText("100%", 2, 10); g.fillText("CHANCE", w - 40, h - 0.125 * h - 3);
+  const seen = pooled.filter(Boolean);
+  const top = Math.min(1, Math.max(0.5, Math.ceil(Math.max(0, ...seen.map((p) => Math.max(p.you, p.chance))) * 10 + 0.5) / 10));
+  const Y = (v) => h - 2 - Math.max(0, Math.min(1, v / top)) * (h - 14);
+  // gridlines with their percentages
+  g.strokeStyle = "#1f3326"; g.lineWidth = 1; g.fillStyle = "#3d6a46";
+  for (let v = 0.1; v < top + 1e-6; v += top > 0.6 ? 0.2 : 0.1) {
+    const y = Math.round(Y(v)) + 0.5;
+    g.beginPath(); g.moveTo(24, y); g.lineTo(w, y); g.stroke();
+    g.fillText(`${Math.round(v * 100)}%`, 1, y + 3);
+  }
+  const score = $("#m-score");
+  if (!hist.length || !seen.length) {
+    g.fillStyle = "#4f9a5a";
+    g.fillText(hist.length ? "WAITING FOR A NEED TO PRESS" : "THE FIRST POINT APPEARS AT BEAT 10", 30, h / 2);
+    score.innerHTML = "";
+    return;
+  }
+  const n = Math.max(30, hist.length);
+  const X = (i) => 26 + (i / (n - 1)) * (w - 28);
+  g.fillStyle = "rgba(208, 90, 224, .7)";
+  hist.forEach((p, i) => { if (p.poisoned) g.fillRect(X(i) - 1, h - Math.min(h, p.poisoned * 3), 2, Math.min(h, p.poisoned * 3)); });
+  // the gap between the two lines: what the mind adds over chance
+  g.fillStyle = "rgba(255, 207, 90, .16)";
+  for (let i = 1; i < pooled.length; i++) {
+    const a = pooled[i - 1], b = pooled[i];
+    if (!a || !b) continue;
+    g.beginPath();
+    g.moveTo(X(i - 1), Y(a.you)); g.lineTo(X(i), Y(b.you)); g.lineTo(X(i), Y(b.chance)); g.lineTo(X(i - 1), Y(a.chance));
+    g.closePath(); g.fill();
+  }
+  const line = (pick, color, dash = []) => {
+    g.strokeStyle = color; g.lineWidth = 1.6; g.setLineDash(dash); g.beginPath();
+    let on = false;
+    pooled.forEach((p, i) => {
+      const v = p && pick(p);
+      if (v === null || v === undefined || Number.isNaN(v)) { on = false; return; }
+      if (!on) { g.moveTo(X(i), Y(v)); on = true; } else g.lineTo(X(i), Y(v));
+    });
+    g.stroke(); g.setLineDash([]);
+  };
+  // population, on its own scale (the mind's room), faint so it does not read as a score
+  g.globalAlpha = 0.55;
+  g.strokeStyle = "#6fb7e0"; g.lineWidth = 1; g.beginPath();
+  hist.forEach((p, i) => { const y = h - 2 - Math.min(1, p.pop / 48) * (h - 14); if (i) g.lineTo(X(i), y); else g.moveTo(X(i), y); });
+  g.stroke(); g.globalAlpha = 1;
+  line((p) => p.chance, "#8fae96", [3, 3]);
+  line((p) => p.you, "#ffcf5a");
+  const last = seen[seen.length - 1];
+  const ratio = last.chance > 0 ? last.you / last.chance : 0;
+  score.innerHTML = `NOW: <b>THE CADENCE ${Math.round(last.you * 100)}%</b> · <span class="r">RANDOM CHOICE ${Math.round(last.chance * 100)}%</span> · ${ratio.toFixed(1)}× CHANCE`;
 }
 
 const PROBE_LABEL = { content: "CONTENT", hungry: "HUNGRY", dirty: "DIRTY", bored: "BORED", tired: "TIRED, NIGHT", hurt: "HURT", glitched: "CORRUPT", hand: "HAND NEAR", afraid: "AFRAID", call: "HEARS ▢" };
 
+// the colour key for the probe and choice bars
+function behLegend() {
+  const el = $("#m-beh-legend");
+  if (!layout || el.childElementCount) return;
+  el.innerHTML = layout.behaviors.map((b) => `<span><i style="background:${BEH_COLORS[b]}"></i>${b.toUpperCase()}</span>`).join("");
+}
+
 function probes(snap) {
+  behLegend();
   const el = $("#m-probes");
   const p = snap.probes || {};
   if (!layout || !Object.keys(p).length) { el.innerHTML = '<div class="hint">The Cadence has not imagined anything yet. It is asked every 12 beats.</div>'; return; }
@@ -300,6 +338,7 @@ function probes(snap) {
     topEl.className = "top";
     topEl.title = `most likely: ${beh[top]} ${(probs[top] * 100).toFixed(0)}%`;
     topEl.appendChild(icon(ICON_FOR[beh[top]], 18));
+    topEl.appendChild(Object.assign(document.createElement("small"), { textContent: `${Math.round(probs[top] * 100)}%` }));
     row.appendChild(topEl);
     el.appendChild(row);
   }

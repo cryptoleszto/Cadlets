@@ -30,7 +30,7 @@
 
     <div id="goal"><span class="label" id="goal-label">GOAL</span><span id="goal-text">HATCH THE EGG</span><i id="goal-left"></i></div>
     <div id="toasts"></div>
-    <div id="paused" class="hidden">PAUSED · SPACE OR ▶ TO RESUME</div>
+    <div id="paused" class="hidden">PAUSED · PRESS SPACE OR ▶</div>
 
     <button id="menu-btn" class="burger" aria-label="Menu"><i></i><i></i><i></i></button>
 
@@ -102,11 +102,14 @@
       </section>
       <section>
         <h4>LEARNING <small>right choice when a need presses</small></h4>
-        <canvas id="m-chart" width="300" height="96"></canvas>
-        <div class="legend"><i class="c1"></i>CADENCE <i class="c2"></i>RANDOM CHANCE <i class="c3"></i>POPULATION <i class="c4"></i>POISONED</div>
+        <div id="m-score" class="score"></div>
+        <canvas id="m-chart" width="300" height="110"></canvas>
+        <div class="legend"><i class="c1"></i>THE CADENCE <i class="c2"></i>RANDOM CHOICE, SAME SITUATIONS <i class="c3"></i>POPULATION <i class="c4"></i>POISONED</div>
       </section>
       <section>
         <h4>WHAT THE CADENCE WOULD DO <small>Brain.imagine · private</small></h4>
+        <p class="hint explain">Each bar is a situation it imagines. The colours show how likely each choice is; the icon is its favourite.</p>
+        <div id="m-beh-legend" class="beh-legend"></div>
         <div id="m-probes"></div>
       </section>
       <section>

@@ -255,6 +255,9 @@ function events(snap) {
       ui.toast("THE CADENCE IS GONE · BUT ITS MIND REMEMBERS<br><small>A NEW EGG HOLDS EVERYTHING IT LEARNED</small>", { icon: "egg", kind: "dark", ms: 8000 });
     } else if (e.type === "terror") {
       log.info("sim", `terror: ${e.n} Cadlets fled; no births for ${snap.terror} beats`);
+    } else if (e.type === "healed") {
+      log.info("sim", "the code repaired itself");
+      ui.toast("THE CODE HAS REPAIRED ITSELF<br><small>THE CORRUPT TREES BEAR CLEAN FRUIT AGAIN</small>", { icon: "i_tree", kind: "learn", ms: 7000 });
     } else if (e.type === "glitch") {
       log.info("sim", "the code rewrote itself");
       audio.sfx.glitch();
@@ -683,7 +686,7 @@ $("#menu").addEventListener("click", async (e) => {
   else if (act === "save") { requestSave("manual"); $("#menu").classList.add("hidden"); }
   else if (act === "glitch") {
     $("#menu").classList.add("hidden");
-    const ok = await modal("Rewrite the code?<br><small>A third of the fruit trees will turn corrupt. The Cadence will have to notice, and repair what it knows.</small>", [{ label: "Yes", value: true }, { label: "No", value: false }]);
+    const ok = await modal("Rewrite the code?<br><small>For a day, a third of the fruit trees will turn corrupt. The Cadence will have to notice, and repair what it knows.</small>", [{ label: "Yes", value: true }, { label: "No", value: false }]);
     if (ok) { log.info("player", "rewrite the code"); send({ type: "glitch" }); }
   } else if (act === "new") {
     $("#menu").classList.add("hidden");
