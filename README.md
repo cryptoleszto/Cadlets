@@ -1,14 +1,14 @@
 # Cadlets · Cadence
 
 An artificial life in the browser by LesztoSoft, inspired by Black Mirror's *Plaything*.
-Every creature is driven by **one continuing [Cadence](https://github.com/muellerberndt/cadence) brain**.
+Every creature is driven by **one unified mind**, built with the [Cadence](https://github.com/muellerberndt/cadence) library.
 Together the Cadlets are **the Cadence**: one mind, many bodies. Nothing they do is scripted. They learn from what happens to them, and you mostly watch.
 
 ```bash
 python3 serve.py
 ```
 
-That opens <http://localhost:8642>. Python is only used to serve the files. The brain
+That opens <http://localhost:8642>: the landing page, with the game at `play.html`. Python is only used to serve the files. The brain
 (Pyodide/CPython 3.12, NumPy 2.0.2 and the Cadence 0.74.0 library) is vendored in `vendor/` and
 runs in a Web Worker in your browser, offline. Google Fonts are optional.
 
@@ -21,6 +21,7 @@ You start with one egg. Click it to hatch it sooner, or wait.
 | **Hand** (1) | Hover: the Cadlets can see your hand. Click a Cadlet: pet it, and open its mind. Drag it: pick it up. Drag it fast and let go: throw it, and it gets hurt. Drag empty ground: pan. |
 | **Apple** (2) / **Ball** (3) / **Soap** (4) | Drop food (5 apples, regrowing), drop a beach ball, scrub a dirty Cadlet. An apple dropped next to a Cadlet that came to your hand is eaten straight from it. |
 | **Flick** (5) / **Crush** (6) | Click a Cadlet to knock it away (it's hurt) or to crush it (it dies). Every Cadlet nearby sees it and is frightened. |
+| **The ending** | After the last evolution, keep at least 40 of the 48 alive for three days in all (the goal banner counts them; terror and starvation pause it). Then the Cadence is whole: a group portrait, its life in numbers, what is coming next. Keep watching, or lay a new egg. |
 | **TERROR** | 15 throws and 5 crushes within one minute and the Cadence breaks: time stops, every Cadlet screams and bolts for the forest, and TERROR drips across the screen. For about a minute (33 beats) they are terrified: each one bolts screaming from your hand when it comes near, and none is born. |
 | **Build tray** | Every evolution gives you a bathtub and an apple tree to place. |
 | **MIND** (M) | The Cadence's mind: the library's diagnostics, learning curve, imagined choices, collective memory, one Cadlet's stream, language, what it thinks of you. |
@@ -148,13 +149,35 @@ and slow beats are counted.
 
 A broken frame no longer stops the picture: the render loop logs the error and draws the next one.
 
+## The site and maintenance
+
+`index.html` is the landing page; the game is `play.html`. `site.json` is the switch:
+
+```json
+{ "status": "maintenance", "message": "We are teaching the Cadence something new.", "back": "BACK AROUND 18:00 CET" }
+```
+
+- **Landing page:** reads it on every visit. While closed, PLAY becomes a maintenance notice with
+  your message and return time.
+- **Game:** checks at start (closed: back to the landing page) and every 5 minutes while playing
+  (closed: the Cadence is saved, the player is told, and sent to the landing page).
+- Set `"status": "open"` to reopen. On Cloudflare Pages a push redeploys in about a minute, and
+  `_headers` keeps `site.json` from being cached.
+- The check runs in the browser, so someone determined could still open the game. For a hard block on
+  Cloudflare Pages, also rename `_redirects.maintenance` to `_redirects` (and back afterwards).
+- If `site.json` cannot be read, the site counts as open.
+- `"coming"` lists the end screen's teasers (`icon` is a sprite name, `title`, `text`); edit them
+  to announce what is next without touching the code.
+
 ## Layout
 
 ```
-index.html, css/, js/          the game: rendering, HUD, input, audio, mind panel
+index.html, css/landing.css    the landing page (js/landing.js); site.json, js/site.js: the switch
+play.html, css/, js/           the game: rendering, HUD, input, audio, mind panel
 js/worker.js                   Pyodide host; JSON in, JSON out
 js/log.js                      flight recorder and debug reports
 js/terror.js                   the TERROR scene
+js/ending.js                   the end screen
 py/cadlets.py                  the world and the Cadence integration (runs natively too)
 assets/sprites.json            pixel art (from tools/make_sprites.py)
 vendor/                        Pyodide 0.27.7 core, NumPy wheel, Cadence wheel

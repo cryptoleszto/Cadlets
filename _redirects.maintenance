@@ -1,0 +1,5 @@
+# Hard maintenance block on Cloudflare Pages: rename this file to "_redirects" and push.
+# Every request for the game goes to the landing page, which explains (from site.json).
+# Rename it back (or delete it) to reopen.
+/play       /?maintenance  302
+/play.html  /?maintenance  302

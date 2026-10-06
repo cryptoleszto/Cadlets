@@ -125,12 +125,26 @@ export function hud(snap) {
   const n = snap.cadlets.length;
   if (n !== lastPop) { $("#pop-n").textContent = n; lastPop = n; }
   const eggs = snap.things.filter((t) => t.k === "egg").length;
+  // Toward the next evolution; after the last one, how full the forest is (the mind's room).
   const next = snap.next;
-  $("#pop").style.setProperty("--p", next ? Math.min(100, (n / next) * 100) : 100);
-  $("#pop").title = next ? `${n} alive · the Cadence evolves at ${next}` : `${n} alive`;
+  const room = next || snap.cap || n || 1;
+  $("#pop").style.setProperty("--p", Math.min(100, (n / room) * 100));
+  $("#pop").classList.toggle("final", !next);
+  $("#pop").title = next ? `${n} alive · the Cadence evolves at ${next}` : `${n} of ${room} alive · the Cadence has grown as far as this forest allows`;
   let goal = snap.goal;
   if (eggs && !n) goal = "HATCH THE EGG";
   if (snap.glitch && snap.beat - (snap.glitch_beat || snap.beat) < 0) goal = "SOMETHING IS WRONG";
+  // the last stretch: keep the Cadence whole for three days, and it ends
+  let whole = null;
+  if (!next && n) {
+    if (snap.ended != null) goal = "THE CADENCE IS WHOLE";
+    else {
+      const need = snap.whole_pop || 40, beats = snap.whole_beats || 720, days = Math.round(beats / 240);
+      whole = Math.min(1, (snap.whole || 0) / beats);
+      const day = Math.min(days, Math.floor((snap.whole || 0) / 240) + 1);
+      goal = n >= need ? `KEEP THE CADENCE WHOLE · DAY ${day} OF ${days}` : `KEEP ${need} ALIVE · ${n} NOW · DAY ${day} OF ${days}`;
+    }
+  }
   if (!n && !eggs) goal = "THE CADENCE IS GONE";
   // TERROR takes over the banner until it has drained away
   const terror = snap.terror > 0 && n > 0;
@@ -138,8 +152,9 @@ export function hud(snap) {
   $("#goal-label").textContent = terror ? "TERROR" : "GOAL";
   $("#goal-text").textContent = goal;
   $("#goal").classList.toggle("terror", terror);
+  $("#goal").classList.toggle("whole", !terror && whole !== null);
   $("#goal").classList.toggle("alert", !n && !eggs);
-  $("#goal").style.setProperty("--left", terror ? (snap.terror / (snap.terror_beats || 33)).toFixed(3) : "0");
+  $("#goal").style.setProperty("--left", terror ? (snap.terror / (snap.terror_beats || 33)).toFixed(3) : whole !== null ? whole.toFixed(3) : "0");
   const day = Math.floor(snap.beat / 240) + 1;
   $("#beat").textContent = `DAY ${day} · BEAT ${snap.beat}${snap.night ? " · NIGHT" : ""}`;
 }

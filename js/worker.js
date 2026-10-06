@@ -75,7 +75,7 @@ async function boot(save) {
   py.runPython("import sys; sys.path.insert(0, '/home/pyodide')");
   const mod = py.runPython(HELPERS + "\nimport types\ntypes.SimpleNamespace(fresh=fresh, load=load, tick=tick, snap=snap, select=select, save=save, versions=versions)");
   api = mod;
-  progress("COMPOSING ONE BRAIN", 88);
+  progress("COMPOSING ONE UNIFIED MIND", 88);
   let layout = null;
   let restored = false;
   if (save) {

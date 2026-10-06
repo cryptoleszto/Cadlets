@@ -99,6 +99,11 @@ export const sfx = {
   lesson() { [523, 659, 784, 1046].forEach((f, i) => tone({ f, t: 0.16, type: "triangle", vol: 0.12, at: i * 0.09 })); },
   evolve() { [262, 330, 392, 523, 659, 784].forEach((f, i) => tone({ f, t: 0.22, type: "square", vol: 0.07, at: i * 0.11 })); },
   glitch() { for (let i = 0; i < 6; i++) { noise({ t: 0.05, vol: 0.18, hp: 200 + Math.random() * 3000, at: i * 0.07 }); tone({ f: 80 + Math.random() * 900, t: 0.05, type: "square", vol: 0.06, at: i * 0.07 }); } },
+  // the ending: a warm rising arpeggio, then a held chord
+  ending() {
+    [392, 494, 587, 784, 988, 1175].forEach((f, i) => tone({ f, t: 0.3, type: "triangle", vol: 0.1, at: i * 0.12 }));
+    [392, 494, 587, 784].forEach((f) => tone({ f, t: 1.8, type: "triangle", vol: 0.06, at: 0.8 }));
+  },
   // TERROR: a low, sour slam under the screams
   terror() {
     noise({ t: 0.5, vol: 0.3, hp: 60, lp: 900 });

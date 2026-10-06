@@ -7,6 +7,8 @@ import * as audio from "./audio.js";
 import { Wordmark } from "./logo.js";
 import * as log from "./log.js";
 import { playTerror } from "./terror.js";
+import { siteStatus } from "./site.js";
+import { showEnding } from "./ending.js";
 
 const $ = (s) => document.querySelector(s);
 const BASE_BEAT = 1800; // ms per beat at 1x: one decision, a walk, and time to act
@@ -157,8 +159,10 @@ worker.onmessage = (ev) => {
     onSnap(JSON.parse(m.snap), m.ms, !!m.still);
   } else if (m.type === "saved") {
     if (m.reason === "debug") { debugReport(m.bytes); return; }
-    dbPut("cadence", { bytes: m.bytes, build: state.build, apples: state.apples, at: Date.now(), beat: state.snap?.beat || 0 });
+    const stored = dbPut("cadence", { bytes: m.bytes, build: state.build, apples: state.apples, at: Date.now(), beat: state.snap?.beat || 0 });
     state.lastSave = performance.now();
+    if (m.reason === "home") stored.then(() => location.assign("./"));
+    if (m.reason === "closing") stored.then(closing);
     if (m.reason === "manual") { log.info("save", "saved", { bytes: m.bytes.length }); ui.toast("THE CADENCE HAS BEEN SAVED", { icon: "i_sparkle", ms: 2500 }); }
   } else if (m.type === "warn") {
     log.warn("sim", m.text);
@@ -237,6 +241,8 @@ function events(snap) {
         audio.sfx.lesson();
         $("#mind-btn").classList.remove("pulse"); void $("#mind-btn").offsetWidth; $("#mind-btn").classList.add("pulse");
       }
+    } else if (e.type === "ending") {
+      ending(e, snap);
     } else if (e.type === "evolve") {
       log.info("sim", `evolved to stage ${e.stage} (${e.cap} bodies)`);
       evolve(e, snap);
@@ -316,6 +322,33 @@ async function speak(e, snap) {
     [{ label: "Yes" }, { label: "Yes" }],
     { glitch: true },
   );
+}
+
+// The ending: the Cadence has been whole for three days since its last evolution.
+async function ending(e, snap) {
+  log.info("sim", `the Cadence is whole at beat ${e.beat}`);
+  audio.sfx.ending();
+  const wasPaused = state.paused;
+  state.dialog = true;
+  setPaused(true);
+  const site = await siteStatus();
+  const choice = await showEnding(snap, { coming: site.coming });
+  state.dialog = false;
+  log.info("player", `ending: ${choice}`);
+  if (choice === "new") await newEgg();
+  setPaused(wasPaused);
+}
+
+async function newEgg() {
+  const ok = await modal("Lay a new egg?<br><small>This Cadence and everything it has learned will be lost.</small>", [{ label: "Yes", value: true }, { label: "No", value: false }]);
+  if (!ok) return false;
+  log.info("player", "lay a new egg");
+  state.build = { tub: 0, tree: 0 }; state.apples = 5; updateBuild(); updateApples();
+  state.firstDeath = state.firstSplit = state.firstKill = false;
+  select(null);
+  worker.postMessage({ type: "new" });
+  setTimeout(() => requestSave("auto"), 1500);
+  return true;
 }
 
 // ------------------------------------------------------------------ selection
@@ -648,18 +681,14 @@ $("#menu").addEventListener("click", async (e) => {
     if (ok) { log.info("player", "rewrite the code"); send({ type: "glitch" }); }
   } else if (act === "new") {
     $("#menu").classList.add("hidden");
-    const ok = await modal("Lay a new egg?<br><small>This Cadence and everything it has learned will be lost.</small>", [{ label: "Yes", value: true }, { label: "No", value: false }]);
-    if (ok) {
-      log.info("player", "lay a new egg");
-      state.build = { tub: 0, tree: 0 }; state.apples = 5; updateBuild(); updateApples();
-      state.firstDeath = state.firstSplit = state.firstKill = false;
-      select(null);
-      worker.postMessage({ type: "new" });
-      setTimeout(() => requestSave("auto"), 1500);
-    }
+    await newEgg();
   } else if (act === "debug") {
     $("#menu").classList.add("hidden");
     requestDebugReport();
+  } else if (act === "home") {
+    $("#menu").classList.add("hidden");
+    log.info("player", "home");
+    if (state.started) { setPaused(true); requestSave("home"); } else location.assign("./");
   } else if (act === "about") {
     $("#menu").classList.add("hidden");
     about();
@@ -671,7 +700,7 @@ function about() {
   modal(
     `<h2>ABOUT THE CADENCE</h2>
      <div style="font-size:17px;text-align:left">
-     Every Cadlet is one stream (one batch row) of a single brain built with the <b>Cadence</b> library. Together they are the Cadence:
+     Every Cadlet is one stream (one batch row) of one unified mind, built with the <b>Cadence</b> library. Together they are the Cadence:
      ${L ? `${L.neurons} neurons, ${L.parameters.toLocaleString()} parameters, regions ${L.modules.join("→")} plus association, prefrontal and motor.` : ""}
      The bodies are separate; the mind is shared. Weights, critic and the consolidated associative memory belong to all of them.
      Each Cadlet keeps its own working trace and fast memory.
@@ -788,7 +817,32 @@ async function start(save) {
   requestSave("auto");
 }
 
+// ------------------------------------------------------------------ maintenance
+// site.json can close the site. Closed at boot: back to the landing page, which explains.
+// Closed while playing: the Cadence is saved first, then the player is told and sent home.
+let closingShown = false;
+async function checkSite() {
+  const site = await siteStatus();
+  if (site.error) log.warn("site", site.error);
+  return site.status === "maintenance";
+}
+setInterval(async () => {
+  if (!state.started || closingShown || !(await checkSite())) return;
+  closingShown = true;
+  log.info("site", "maintenance began while playing");
+  setPaused(true);
+  requestSave("closing");
+}, 5 * 60 * 1000);
+async function closing() {
+  await ui.dialog(
+    `<h2>CADLETS IS CLOSING FOR MAINTENANCE</h2>Your Cadence has been saved in this browser.<br><small>It will be waiting when the clearing opens again.</small>`,
+    [{ label: "Yes" }],
+  );
+  location.assign("./?maintenance");
+}
+
 async function boot() {
+  if (await checkSite()) { location.replace("./?maintenance"); return; }
   await loadSprites();
   ui.paintIcons();
   renderer.resize();
@@ -813,4 +867,4 @@ canvas.addEventListener("click", (e) => {
 
 boot();
 void sprite;
-window.cadlets = { renderer, state, send, log, worker, terror }; // for poking around in the console
+window.cadlets = { renderer, state, send, log, worker, terror, ending: () => ending({ beat: state.snap.beat }, state.snap) }; // for poking around in the console

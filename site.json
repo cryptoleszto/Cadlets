@@ -1,0 +1,10 @@
+{
+  "status": "open",
+  "message": "We are teaching the Cadence something new.",
+  "back": "",
+  "coming": [
+    { "icon": "i_tree", "title": "A WIDER FOREST", "text": "Room for twice as many Cadlets, and new places to find beyond the trees." },
+    { "icon": "i_sparkle", "title": "A SHARED RECORD", "text": "See what other players' Cadences learned, and how they judged the hand that raised them." },
+    { "icon": "g_mo", "title": "▢ ◇ ✕", "text": "They have more to say." }
+  ]
+}

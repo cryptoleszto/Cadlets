@@ -140,6 +140,23 @@ def main() -> None:
     snap = run(w3, 1)
     check(w3.glitch and any(tr.data.get("glitched") for tr in w3._of("tree")), "the glitch corrupts fruit trees")
 
+    # the ending: after the last evolution, keep at least whole_pop alive for whole_beats
+    w4 = cadlets.World(seed=6)
+    run(w4, 8)
+    for _ in range(len(cadlets.STAGES) - 1):
+        while len(w4.cadlets) < cadlets.STAGES[w4.stage]["evolve_at"]:
+            w4._birth(*w4._free_spot(w4.cx, w4.cy, 6.0), None)
+        run(w4, 1)
+    check(cadlets.STAGES[w4.stage]["evolve_at"] is None, "the Cadence reaches its last evolution")
+    while len(w4.cadlets) < cadlets.TUNE["whole_pop"] + 4:
+        w4._birth(*w4._free_spot(w4.cx, w4.cy, 6.0), None)
+    w4.whole = cadlets.TUNE["whole_beats"] - 2
+    endings = []
+    for _ in range(4):
+        endings += [e for e in run(w4, 1)["events"] if e["type"] == "ending"]
+    check(len(endings) == 1 and w4.ended is not None, "the Cadence becomes whole once (the ending)")
+    check(cadlets.World.load(w4.save()).ended == w4.ended, "the ending survives a save")
+
     print()
     print("all passed" if not failures else f"{len(failures)} failed")
     sys.exit(1 if failures else 0)

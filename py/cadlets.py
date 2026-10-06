@@ -1,4 +1,4 @@
-"""The Cadlets' world, whose creatures are all driven by one Cadence brain.
+"""The Cadlets' world, whose creatures are all driven by one unified mind (one Cadence brain).
 
 Every living cadlet is one continuing stream (one batch row) of a single
 ``cadence.Brain``; together they are "the Cadence". The bodies are separate, the
@@ -73,6 +73,8 @@ TUNE = {
     "terror_beats": 33,    # TERROR: beats until the panic fades (about a minute at 1x); no births meanwhile
     "terror_shock": 0.5,   # the outcome felt when the Cadence breaks in terror
     "terror_reach": 8.0,   # during TERROR, a hand this close (tiles) sends a Cadlet bolting, screaming
+    "whole_pop": 40,       # the ending: after the last evolution, at least this many alive...
+    "whole_beats": 720,    # ...for this many beats in all (three days) and the Cadence is whole
     "glitch_beat": 600,   # the code rewrites itself once the Cadence has reached stage 2 and this beat
     "metabolism": [1.0, 1.1, 1.2, 1.3],  # need growth multiplier per evolution stage
     "regrow": 2,          # beats per new fruit on a tree
@@ -220,6 +222,8 @@ class World:
         self.glitch = False
         self.glitch_beat: int | None = None
         self.terror_until = 0                       # no births before this beat (TERROR)
+        self.whole = 0                              # beats spent whole after the last evolution
+        self.ended: int | None = None               # the beat the Cadence became whole (the ending)
         self.started = False                        # brain has issued a first action
         self.pending_done = np.zeros(self.cap, bool)
         self.pending_reward = np.zeros(self.cap)
@@ -461,6 +465,7 @@ class World:
         self._evolve()
         if not self.glitch and self.stage >= 2 and self.beat >= TUNE["glitch_beat"]:
             self._start_glitch()
+        self._whole()
         self._think()
         if self.beat % 10 == 0:
             self._record()
@@ -857,6 +862,16 @@ class World:
                     best, bd = voices_last[s.id], d
             self.heard[t.id] = best
 
+    def _whole(self) -> None:
+        """The ending: once the mind can grow no more, keep the Cadence whole for three days."""
+        if self.ended is not None or STAGES[self.stage]["evolve_at"] is not None:
+            return
+        if len(self.cadlets) >= TUNE["whole_pop"]:
+            self.whole += 1
+            if self.whole >= TUNE["whole_beats"]:
+                self.ended = self.beat
+                self.events.append({"type": "ending", "beat": self.beat})
+
     def _evolve(self) -> None:
         stage = STAGES[self.stage]
         if stage["evolve_at"] is None or len(self.cadlets) < stage["evolve_at"]:
@@ -1222,6 +1237,8 @@ class World:
             "cadlets": thr, "things": things, "events": self.events, "diag": self.diag,
             "stats": self.stats, "mind": mind, "handview": self.handview,
             "terror": max(0, self.terror_until - self.beat), "terror_beats": TUNE["terror_beats"],
+            "whole": self.whole, "whole_beats": TUNE["whole_beats"], "whole_pop": TUNE["whole_pop"],
+            "ended": self.ended,
         }
         if full:
             out["history"] = self.history[-120:]
@@ -1268,7 +1285,7 @@ class World:
         world = {
             "seed": self.seed, "modules": list(self.modules), "stage": self.stage, "cap": self.cap,
             "beat": self.beat, "next_id": self.next_id, "glitch": self.glitch, "glitch_beat": self.glitch_beat,
-            "terror_until": self.terror_until,
+            "terror_until": self.terror_until, "whole": self.whole, "ended": self.ended,
             "started": self.started, "rows": self.rows, "stats": self.stats, "history": self.history,
             "lessons": self.lessons, "lexicon": self.lexicon.tolist(), "lexicon_need": self.lexicon_need.tolist(),
             "handview": self.handview,
@@ -1303,6 +1320,7 @@ class World:
         for key in ("refusals", "crushed", "hand_fed", "terrors"):
             self.stats.setdefault(key, 0)
         self.terror_until = world.get("terror_until", 0)
+        self.whole, self.ended = world.get("whole", 0), world.get("ended")
         self.history, self.lessons = world["history"], world["lessons"]
         self.handview = world.get("handview", self.handview)
         self.lexicon = np.array(world["lexicon"])

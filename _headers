@@ -1,0 +1,3 @@
+# Cloudflare Pages: the maintenance switch must never be served from a cache.
+/site.json
+  Cache-Control: no-store
