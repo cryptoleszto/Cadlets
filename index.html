@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Cadlets · Cadence</title>
+  <meta name="description" content="Cadlets: an artificial life where every creature is driven by one continuing Cadence brain.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&family=Silkscreen&family=VT323&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="world" aria-label="The Cadlets' field"></canvas>
+  <div id="labels"></div>
+  <div id="crt" aria-hidden="true"></div>
+  <div id="glitch" aria-hidden="true"></div>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="pop" class="ring" title="Cadlets alive / next evolution">
+      <div class="ring-fill"></div>
+      <div class="ring-core">
+        <canvas id="pop-icon" width="20" height="21"></canvas>
+        <span id="pop-n">0</span>
+      </div>
+    </div>
+
+    <div id="goal"><span class="label">GOAL</span><span id="goal-text">HATCH THE EGG</span></div>
+    <div id="toasts"></div>
+    <div id="paused" class="hidden">PAUSED · SPACE OR ▶ TO RESUME</div>
+
+    <button id="menu-btn" class="burger" aria-label="Menu"><i></i><i></i><i></i></button>
+
+    <div id="clock">
+      <button id="pause-btn" class="chip" aria-label="Pause" title="Pause (space)">❚❚</button>
+      <div id="speeds">
+        <button data-speed="1" class="chip on" title="Normal speed">1×</button>
+        <button data-speed="2" class="chip" title="Twice as fast (+)">2×</button>
+        <button data-speed="4" class="chip" title="Four times as fast">4×</button>
+        <button data-speed="8" class="chip" title="Eight times as fast">8×</button>
+      </div>
+      <span id="beat">DAY 1 · BEAT 0</span>
+    </div>
+
+    <button id="mind-btn" class="mind-btn" title="The Cadence's mind (M)">
+      <span class="mind-dot"></span>MIND
+    </button>
+
+    <div id="tray" class="tray">
+      <div class="tabs">
+        <button class="tab on" data-tab="care" title="Care"><canvas data-icon="tab_care" width="18" height="18"></canvas></button>
+        <button class="tab" data-tab="build" title="Build"><canvas data-icon="tab_build" width="18" height="18"></canvas></button>
+      </div>
+      <div class="slots" data-panel="care">
+        <button class="slot on" data-tool="hand" title="Hand (1): click to pet · drag to carry · drag fast and let go to throw"><canvas data-icon="i_hand" width="9" height="9"></canvas><b>HAND</b></button>
+        <button class="slot" data-tool="apple" title="Drop an apple (2)"><canvas data-icon="i_apple" width="9" height="9"></canvas><b id="apple-n">5</b></button>
+        <button class="slot" data-tool="ball" title="Drop a beach ball (3)"><canvas data-icon="i_ball" width="9" height="9"></canvas><b>BALL</b></button>
+        <button class="slot" data-tool="soap" title="Scrub a Cadlet (4)"><canvas data-icon="i_soap" width="9" height="9"></canvas><b>SOAP</b></button>
+        <button class="slot harm" data-tool="flick" title="Flick (5): click a Cadlet to knock it away. It hurts, and the others see it."><canvas data-icon="i_flick" width="9" height="9"></canvas><b>FLICK</b></button>
+        <button class="slot harm" data-tool="crush" title="Crush (6): click a Cadlet to kill it. The others see it."><canvas data-icon="i_fist" width="9" height="9"></canvas><b>CRUSH</b></button>
+      </div>
+      <div class="slots hidden" data-panel="build">
+        <button class="slot" data-tool="tub" title="Place a bathtub"><canvas data-icon="i_tub" width="9" height="9"></canvas><b id="tub-n">0</b></button>
+        <button class="slot" data-tool="tree" title="Plant an apple tree"><canvas data-icon="i_tree" width="9" height="9"></canvas><b id="tree-n">0</b></button>
+        <div class="slot empty"></div>
+        <div class="slot empty"></div>
+        <div class="slot empty"></div>
+        <div class="slot empty"></div>
+      </div>
+      <button id="tray-btn" class="tools-btn" aria-label="Tools"><canvas data-icon="tools" width="20" height="20"></canvas></button>
+    </div>
+  </div>
+
+  <!-- Menu -->
+  <div id="menu" class="plank-panel hidden">
+    <h3 class="logo"><canvas id="logo-small" aria-hidden="true"></canvas><span class="sr">CADLETS</span></h3>
+    <button data-act="mind">THE CADENCE'S MIND</button>
+    <button data-act="sound">SOUND: ON</button>
+    <button data-act="save">SAVE THE CADENCE</button>
+    <button data-act="glitch">REWRITE THE CODE</button>
+    <button data-act="new">LAY A NEW EGG</button>
+    <button data-act="about">ABOUT</button>
+    <button data-act="close">CLOSE</button>
+  </div>
+
+  <!-- The Cadence's mind (diagnostics from the Cadence library) -->
+  <aside id="mind" class="hidden" aria-label="The Cadence's mind">
+    <header>
+      <span class="led"></span>
+      <b>LESZTOSOFT // CADENCE.MIND</b>
+      <button id="mind-close" aria-label="Close">×</button>
+    </header>
+    <div class="mind-body">
+      <section>
+        <h4>ONE MIND · <span id="m-bodies">0 BODIES</span></h4>
+        <div id="m-brain" class="kv"></div>
+      </section>
+      <section>
+        <h4>LEARNING <small>right choice when a need presses</small></h4>
+        <canvas id="m-chart" width="300" height="96"></canvas>
+        <div class="legend"><i class="c1"></i>CADENCE <i class="c2"></i>RANDOM CHANCE <i class="c3"></i>POPULATION <i class="c4"></i>POISONED</div>
+      </section>
+      <section>
+        <h4>WHAT THE CADENCE WOULD DO <small>Brain.imagine · private</small></h4>
+        <div id="m-probes"></div>
+      </section>
+      <section>
+        <h4>COLLECTIVE MEMORY <small>consolidated · shared by all</small></h4>
+        <canvas id="m-memory" width="300" height="150"></canvas>
+      </section>
+      <section id="m-one">
+        <h4>CADLET <span id="m-name">—</span></h4>
+        <div id="m-sel" class="hint">Click a Cadlet to look inside its stream.</div>
+        <canvas id="m-neurons" width="300" height="70"></canvas>
+      </section>
+      <section>
+        <h4>WHAT THE CADENCE THINKS OF YOU</h4>
+        <div id="m-you"></div>
+      </section>
+      <section>
+        <h4>THE CADENCE'S LANGUAGE</h4>
+        <div id="m-lex"></div>
+      </section>
+      <section>
+        <h4>WHAT THE CADENCE HAS LEARNED</h4>
+        <ol id="m-lessons"></ol>
+      </section>
+    </div>
+  </aside>
+
+  <!-- Dialog -->
+  <div id="dialog" class="hidden">
+    <div class="plank">
+      <div id="dialog-text"></div>
+      <div id="dialog-buttons"></div>
+    </div>
+  </div>
+
+  <!-- Title / boot -->
+  <div id="title">
+    <div class="title-inner">
+      <div class="kicker">LESZTOSOFT · 2026</div>
+      <h1 class="logo"><canvas id="logo" aria-hidden="true"></canvas><span class="sr">CADLETS</span></h1>
+      <div class="sub">AN ARTIFICIAL LIFE · MINDS BY CADENCE</div>
+      <div id="boot">
+        <div class="bar"><i id="boot-bar"></i></div>
+        <div id="boot-text">INSERT DISK…</div>
+      </div>
+      <div id="title-buttons" class="hidden">
+        <button id="btn-continue" class="plank-btn hidden">CONTINUE THE CADENCE</button>
+        <button id="btn-start" class="plank-btn">HATCH AN EGG</button>
+      </div>
+      <p class="fine">Every Cadlet is a stream of one continuing Cadence brain, running in your browser.<br>Nothing they do is scripted. They learn from what happens to them.</p>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

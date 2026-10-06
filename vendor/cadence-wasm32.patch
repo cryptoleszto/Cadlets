@@ -1,0 +1,11 @@
+--- ../cadence/src/cadence/learning.py	2026-10-06 01:55:00
++++ src/cadence/learning.py	2026-10-06 02:58:01
+@@ -303,7 +303,7 @@
+         self.output_groups: np.ndarray | None = None
+         if self.slot_count > 1:  # one softmax per slot: a whole utterance settles at once
+             self.output_groups = np.full(self.brain.connectome.n, -1, dtype=np.int64)
+-            groups = np.repeat(np.arange(self.slot_count), self.slot_sizes)
++            groups = np.repeat(np.arange(self.slot_count), self.slot_sizes.astype(np.intp))
+             self.output_groups[self.output_index] = groups
+         if self.plastic_synapses is None:
+             self.plastic_synapses = np.ones(self.brain.connectome.synapses, dtype=bool)

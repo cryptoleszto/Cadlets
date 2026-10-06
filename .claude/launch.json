@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "cadlets",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["serve.py", "8642", "--no-browser"],
+      "port": 8642
+    }
+  ]
+}
