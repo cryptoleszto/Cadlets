@@ -10,7 +10,10 @@ python3 serve.py
 
 That opens <http://localhost:8642>: the landing page, with the game at `play.html`. Python is only used to serve the files. The brain
 (Pyodide/CPython 3.12, NumPy 2.0.2 and the Cadence 0.74.0 library) is vendored in `vendor/` and
-runs in a Web Worker in your browser, offline. Google Fonts are optional.
+runs in a Web Worker in your browser, offline. The fonts are served from the site too, so nothing
+loads from anywhere else. `serve.py` applies the site's `_headers` like the live site does.
+
+**Deploying:** Cloudflare Pages, built with `python3 tools/build_site.py`; see [DEPLOY.md](DEPLOY.md).
 
 ## Playing
 
@@ -213,7 +216,7 @@ A broken frame no longer stops the picture: the render loop logs the error and d
 - **Game:** checks at start (closed: back to the landing page) and every 5 minutes while playing
   (closed: the Cadence is saved, the player is told, and sent to the landing page).
 - Set `"status": "open"` to reopen. On Cloudflare Pages a push redeploys in about a minute, and
-  `_headers` keeps `site.json` from being cached.
+  `_headers` keeps `site.json` from being cached (DEPLOY.md has the routine).
 - The check runs in the browser, so someone determined could still open the game. For a hard block on
   Cloudflare Pages, also rename `_redirects.maintenance` to `_redirects` (and back afterwards).
 - If `site.json` cannot be read, the site counts as open.
@@ -224,6 +227,9 @@ A broken frame no longer stops the picture: the render loop logs the error and d
 
 ```
 index.html, css/landing.css    the landing page (js/landing.js); site.json, js/site.js: the switch
+404.html                       the page for addresses that do not exist
+_headers, _redirects.*         response headers and the hard maintenance block (Cloudflare Pages)
+css/fonts.css, assets/fonts/   the self-hosted pixel fonts (SIL Open Font License)
 play.html, css/, js/           the game: rendering, HUD, input, audio, mind panel
 js/worker.js                   Pyodide host; JSON in, JSON out
 js/log.js                      flight recorder and debug reports
@@ -231,7 +237,8 @@ js/terror.js                   the TERROR scene
 js/ending.js                   the end screen
 py/cadlets.py                  the world and the Cadence integration (runs natively too)
 assets/sprites.json            pixel art (from tools/make_sprites.py)
-vendor/                        Pyodide 0.27.7 core, NumPy wheel, Cadence wheel
+vendor/                        Pyodide 0.27.7 core (vendor/pyodide-0.27.7/), NumPy wheel, Cadence wheel
+serve.py                       local server; tools/build_site.py builds dist/ for deployment
 tools/headless.py, tune.py     learning curves and parameter sweeps without a browser
 tools/smoke.py                 quick checks of every player event, save/load, evolution
 tools/replay.py                replay a debug report's save natively
@@ -248,6 +255,7 @@ To run the tools natively: `pip install -e path/to/cadence` (Python ≥ 3.11), t
 - `vendor/cadence_net-0.74.0-py3-none-any.whl` is built from muellerberndt/cadence at `8d1b82c`
   with a one-line fix for 32-bit WebAssembly (`vendor/cadence-wasm32.patch`): `np.repeat` needs
   `intp` repeat counts.
-- Cadence is GPL-3.0 (`vendor/CADENCE-LICENSE.txt`). Pyodide is MPL-2.0; NumPy is BSD-3.
+- Cadence is GPL-3.0 (`vendor/CADENCE-LICENSE.txt`). Pyodide is MPL-2.0; NumPy is BSD-3. The fonts
+  (Pixelify Sans, Silkscreen, VT323) are under the SIL Open Font License 1.1 (`assets/fonts/OFL-*.txt`).
 - Inspired by Black Mirror's "Plaything" and the game at its heart. Not affiliated with Netflix
   or Night School Studio. All art and sound here are original and procedural.

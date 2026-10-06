@@ -866,7 +866,17 @@ async function boot() {
     $("#btn-continue").textContent = `CONTINUE THE CADENCE · BEAT ${save.beat || 0}`;
   }
   $("#btn-continue").onclick = () => start(save);
-  $("#btn-start").onclick = () => start(null);
+  $("#btn-start").onclick = async () => {
+    // a new egg replaces the saved colony at its first autosave, so ask before losing it
+    if (save && save.bytes) {
+      const ok = await ui.dialog(
+        `Hatch a new egg?<br><small>Your colony (beat ${save.beat || 0}) and everything its mind has learned will be lost.</small>`,
+        [{ label: "Yes", value: true }, { label: "No", value: false }],
+      );
+      if (!ok) return;
+    }
+    start(null);
+  };
   worker.postMessage({ type: "boot" });
 }
 

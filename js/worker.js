@@ -3,7 +3,7 @@
 // Everything crosses the boundary as JSON strings, so no Python proxies pile up.
 
 /* global importScripts, loadPyodide */
-importScripts("../vendor/pyodide/pyodide.js");
+importScripts("../vendor/pyodide-0.27.7/pyodide.js");
 
 let py = null;
 let api = null; // Python helpers: {tick, snap, select, save, load, fresh}
@@ -63,7 +63,7 @@ function seed() {
 async function boot(save) {
   const t0 = performance.now();
   progress("LOADING PYTHON 3.12 (PYODIDE)", 5);
-  py = await loadPyodide({ indexURL: "../vendor/pyodide/" });
+  py = await loadPyodide({ indexURL: "../vendor/pyodide-0.27.7/" });
   progress("LOADING NUMPY", 35);
   await py.loadPackage("numpy", { messageCallback: () => {} });
   progress("UNPACKING CADENCE 0.74.0", 60);

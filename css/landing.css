@@ -142,6 +142,10 @@ main > section.wrap { padding-top: 96px; }
   background: repeating-linear-gradient(90deg, rgba(255, 207, 90, .55) 0 6px, transparent 6px 12px);
 }
 
+/* the 404 page: a centred heading, without the trailing rule */
+.heading.alone { justify-content: center; margin-bottom: 4px; }
+.heading.alone::after { display: none; }
+
 .section-intro { margin: -8px 0 24px; max-width: 720px; font-size: 18px; color: #d8e0f6; }
 
 .intro { display: grid; grid-template-columns: 1.5fr 1fr; gap: 48px; align-items: center; }

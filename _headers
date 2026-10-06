@@ -1,3 +1,27 @@
-# Cloudflare Pages: the maintenance switch must never be served from a cache.
+# Response headers on Cloudflare Pages. serve.py applies this file too, so a local run matches.
+# A block is a URL pattern (* matches anything) followed by indented "Name: value" lines; when
+# several blocks match a request, their headers are combined.
+
+# Everything: nothing loads from other sites, and the pages cannot be framed. Pyodide compiles
+# WebAssembly ('wasm-unsafe-eval'); the mind panel colours its bars with inline style attributes.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin
+
+# The maintenance switch must never be served from a cache.
 /site.json
   Cache-Control: no-store
+
+# The brain's runtime (about 16 MB) and the fonts are cached for a year. Their names carry their
+# versions, so a new version must get a new name (vendor/pyodide-<version>/, the wheel's name;
+# rename a font file if it is ever replaced). Everything else is revalidated on every visit.
+/vendor/pyodide-0.27.7/*
+  Cache-Control: public, max-age=31536000, immutable
+/vendor/cadence_net-0.74.0-py3-none-any.whl
+  Cache-Control: public, max-age=31536000, immutable
+/assets/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
