@@ -201,6 +201,7 @@ export function mind(snap, extra) {
     ["DOPAMINE (MEAN TD)", `${(d.dopamine ?? 0) >= 0 ? "+" : ""}${(d.dopamine ?? 0).toFixed(3)}`, (d.dopamine ?? 0) >= 0 ? "good" : "bad"],
     ["REWARD UPDATES", `${(d.updates ?? 0).toLocaleString()}`],
     ["MEMORY WRITES", `${(d.writes ?? 0).toLocaleString()}`],
+    ["MEMORY WEIGHT · LAST OUTCOME", d.memory ? `${d.memory[0]}× · ${d.memory[1]}` : "—"],
     ["THINKING TIME", `${extra.ms.toFixed(0)} MS / BEAT`],
   ]);
   // One broken section must not blank the rest of the panel (or the caller).

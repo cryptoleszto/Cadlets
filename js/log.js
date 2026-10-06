@@ -3,7 +3,7 @@
 // browser and downloadable from the menu as one JSON file, optionally with a save of
 // the Cadence so the exact moment can be replayed (tools/replay.py).
 
-export const VERSION = "0.3.0";
+export const VERSION = "0.4.0";
 
 const KEY = "cadlets-log";
 const MAX = 400;

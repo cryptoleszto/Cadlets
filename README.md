@@ -70,7 +70,11 @@ The Cadence autosaves to IndexedDB, and **CONTINUE THE CADENCE** resumes the sam
   `Brain.imagine`. That reads memory without writing it and leaves live state alone. These answers
   drive the "THE CADENCE HAS LEARNED…" announcements. A lesson needs the right answer *in that
   situation* and much less elsewhere, so a habit doesn't count.
-- **Collective memory.** The MIND panel draws `SynapticMemory.consolidated`, the shared
+- **Collective memory.** Cadence's episodic `SynapticMemory` learns, for the situation at hand,
+  what each behaviour brought; its recall is added to the motor drive. Most of the learning
+  happens here. The game weighs that recall 4× Cadence's default and keeps each body's own record
+  of its last outcome at a fifth of the default rate (`MEMORY` in `py/cadlets.py`; see "Why the
+  lines were close" below). The MIND panel draws `SynapticMemory.consolidated`, the shared
   cue → outcome matrix, as a heatmap.
 - **Refusals.** If the graph can't qualify an answer within its budget, the library raises instead
   of acting. Following its contract, the world retries the answer alone with a larger budget (never
@@ -79,7 +83,8 @@ The Cadence autosaves to IndexedDB, and **CONTINUE THE CADENCE** resumes the sam
 
 Brain settings are in `make_brain` (`py/cadlets.py`). They follow the Cadence library's reward guide for
 continuing contextual tasks: a softened working trace (amplitude 0.3, decay 0.8), fast consolidation
-(0.5), actor rate 0.5, softmax temperature 0.15, and qualified free answers. At 1× a beat lasts
+(0.5), actor rate 0.5, softmax temperature 0.15, and qualified free answers. The collective memory is
+weighed by `MEMORY` (recall 4×, last-outcome record 0.2), also in colonies loaded from older saves. At 1× a beat lasts
 1.8 s. A Cadlet heading somewhere walks for part of it (short errands are strolls; only long,
 pressing trips are runs) and then does the thing; every outcome (a kick, a bite, a bath) plays when
 it arrives. A Cadlet that is only walking or wandering keeps going straight into the next beat, and
@@ -88,9 +93,9 @@ one standing about looks around, so nobody freezes between beats.
 ## What to watch for
 
 1. **Bootstrap.** Within the first ~40–200 beats: "THE CADENCE HAS LEARNED: APPLES END HUNGER",
-   then baths, then play, then "THE NIGHT IS FOR SLEEP". The amber learning line climbs above the
-   dashed line: what random choices would score in exactly the same situations. Later, often:
-   "WHEN NOTHING PRESSES, REST".
+   then baths, then play, then "WHEN NOTHING PRESSES, REST" and "THE NIGHT IS FOR SLEEP". The amber
+   learning line climbs well above the dashed line (what random choices would score in exactly the
+   same situations): about 2× chance within the first day, 3× and more once the colony is full.
 2. **Growth comes from competence.** Mitosis needs every need low for a stretch, which chance
    behaviour can't manage. In the headless comparison below, random actions never evolve.
 3. **Witnessed failure → local repair.** At beat 600 (stage 3+) or from the menu, the code rewrites
@@ -108,28 +113,62 @@ one standing about looks around, so nobody freezes between beats.
 
 ## Measured, not claimed
 
-`tools/headless.py` and `tools/tune.py` run the same world natively, with a uniformly random
-policy as the control. Results over 900 beats, 6 seeds:
+`tools/fair.py` runs the chart's own measure for three minds in the same world, with no player:
+the Cadence, uniformly random choices (the control: it must land on the chance line), and a
+hand-written ideal rule that shows how high the measure can go. 6 colonies each, beats 1200–1500:
 
-| | The Cadence | Random actions |
+| | The Cadence | Random choices | Ideal rule |
+|---|---|---|---|
+| Right remedy when a need presses (any pressing need counts) | **0.61** | 0.20 | 1.00 |
+| The chance line in those same situations | 0.17 | 0.20 | 0.22 |
+| Ratio | **3.6×** | 0.97× (on the line) | 4.6× |
+| Alive (of 48) / time in crisis (a need ≥ 0.9) | 48 / 0% | ~1 / 32% (never grows) | 48 / 0% |
+
+`tools/tune.py` and `tools/headless.py`, 900 beats, 6 seeds:
+
+| | The Cadence | Random choices |
 |---|---|---|
-| First evolution (8 alive) | beat 272–479, all 6 seeds | beat 437–817 in 3 seeds, never in 3 |
-| Lessons | apples ~36–170, baths ~36–190, play ~70–700, rest ~380–610 (half the runs), corrupt fruit ~660–770 | — |
-| Right remedy when a need presses (any pressing need counts) | ~0.26–0.31, about 1.5–1.7× the chance line | exactly on the chance line (~0.19–0.25) |
-| Beats spent resting | 35% | 18% |
+| First evolution (8 alive) | beat 224–486, all 6 seeds | never |
+| Lessons (all in 6 of 6 runs) | apples ~50–145, baths ~40–170, play ~40–160, calm ~100–340, rest ~110–700, night ~220–700, corrupt fruit ~700–780 | — |
+| Beats spent resting | 57% (mostly when nothing presses) | 13% |
 
-Simulated players (`tools/` harness, 900 beats, 3 seeds each), measuring what Cadlets that
+Simulated players (`tools/players.py`, 1200 beats, 4 seeds each), measuring what Cadlets that
 can see the hand choose:
 
 | Player | Result |
 |---|---|
-| Kind (pets and feeds whoever comes) | come to the hand 74–89% of the time; "your hand is kind" learned in every run |
-| Kind, then cruel from beat 450 | trust rises to 66–78%, then falls to 2–17% |
-| Cruel, then kind from beat 450 | trust recovers fully: 60% come within 300 beats, 78% by beat 1200 |
-| Cruel from beat 300 | stop approaching; afraid ones flee up to ~33% live (38–53% imagined) in 2 of 3 runs |
+| Kind (pets and feeds whoever comes) | about half come to the hand (46–54% from beat 375 on); "your hand is kind" in 3 of 4 runs |
+| Kind, then cruel from beat 450 | trust falls from 52% to 14–21%; frightened ones flee 22–35% |
+| Cruel, then kind from beat 450 | trust recovers to the kind level: 46% within 375 beats, 49–56% after |
+| Cruel from beat 300 | almost none approach (2–10%); frightened ones flee 38–59% live (46–66% imagined), every run |
 
-Fear-fleeing is the weakest of these: real, but slower and not in every run. The Cadence holds no
-grudge: kindness wins trust back about as fast as cruelty destroys it (`tools/players.py`).
+The Cadence holds no grudge: kindness wins trust back about as fast as cruelty destroys it.
+A Cadlet with a pressing need sees to it first, so even a kind hand gets about half of them.
+
+### Why the lines were close (and what fixed it)
+
+Until October 2026 the Cadence scored only ~1.6× the chance line, and in the chart the two lines
+nearly touched. The chart was right (random choices land exactly on its dashed line); the mind was
+weak. What we measured:
+
+- A hungry Cadlet **rested half the time**, though its private imagination ("what would you do if
+  hungry?") said eat 80% of the time. Re-imagining the live situations reproduced the live choice,
+  so it was not a sampling or measuring fault.
+- Cadence's slow synaptic policy cannot tell situations apart within a game's time. Without the
+  episodic memory a colony learns nothing but a context-free habit, resting, which is right on
+  average because resting is never punished. Changing its credit trace, learning rates, lateral
+  inhibition, saturated motor neurons, bias learning or the empty-row averaging did not move the
+  live choice.
+- The episodic memory had learned the right thing: for live hungry Cadlets it predicted eating
+  at +0.2 to +0.45 and resting at −0.02. But it entered the decision at strength 1, too weak to
+  overrule the habit, and each body's own record of its last outcome was written at full strength.
+  In a crowd, most walks to food end with someone else eating it first, so one miss told that body
+  that food does not help hunger.
+
+The fix weighs the memory's recall 4× and the last-outcome record at 0.2, for every behaviour alike.
+Nothing about which behaviour is right is added, the world and its rewards are unchanged, and the
+measure and its chance line are computed exactly as before. A smoke test checks the weighting is
+applied to new and to loaded minds.
 
 TERROR is the exception to "nothing is scripted": the bolt into the forest, and the bolts from your
 hand while the terror lasts, are reflexes of the body. The brain's choice is not carried out on those
@@ -139,8 +178,9 @@ height, draining over the 33 beats, and a shock on whatever each one was doing).
 A save/load continues identically. Settling and learning cost ~25 ms per beat at 8 bodies and
 ~50 ms at 48 bodies in Chrome/WebAssembly.
 
-Limits: competence is clearly above chance but far from perfect; crowding causes starvation; the
-language rarely gets past a word or two.
+Limits: competence is well above chance but short of the ideal rule; boredom is the weak spot (live,
+a bored Cadlet plays or cuddles barely more often than chance, though imagined it does so 9 times in
+10); crowding causes starvation; the language rarely gets past a word or two.
 
 ## When something goes wrong
 
@@ -196,11 +236,12 @@ tools/headless.py, tune.py     learning curves and parameter sweeps without a br
 tools/smoke.py                 quick checks of every player event, save/load, evolution
 tools/replay.py                replay a debug report's save natively
 tools/players.py               simulated kind, cruel and changing players
+tools/fair.py                  the chart's measure for the Cadence, random choices and an ideal rule
 tools/make_sprites.py          edit and preview the sprites
 ```
 
 To run the tools natively: `pip install -e path/to/cadence` (Python ≥ 3.11), then
-`python tools/headless.py --beats 900` (add `--random` for the control), or `python tools/smoke.py`.
+`python tools/headless.py --beats 900` (add `--random` for the control), `python tools/fair.py`, or `python tools/smoke.py`.
 
 ## Notes
 

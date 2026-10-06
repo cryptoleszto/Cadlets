@@ -116,6 +116,11 @@ def _name(rng: random.Random) -> str:
     return "".join(rng.choice(SYLLABLES) for _ in range(rng.choice((2, 2, 3)))).capitalize()
 
 
+# How the Cadence weighs its collective memory (Cadence's episodic SynapticMemory, which
+# predicts what each behaviour will bring in the situation at hand); see make_brain.
+MEMORY = {"amplitude": 4.0, "rate": 0.2}
+
+
 def make_brain(seed: int, modules: tuple[int, ...], **overrides: Any) -> Brain:
     """One System 1 brain for the whole Cadence.
 
@@ -126,7 +131,10 @@ def make_brain(seed: int, modules: tuple[int, ...], **overrides: Any) -> Brain:
     associative memory - the Cadence's collective memory - carry much of the
     early learning. Free answers use qualified damping, which keeps settling
     cheap once the learned weights make the undamped solve oscillate.
+
+    The memory is weighed as ``MEMORY`` says (``_weigh_memory``), for every behaviour alike.
     """
+    memory = {**MEMORY, **overrides.pop("memory", {})}
     reward = {"gamma": 0.9, "lam": 0.8, "eta": 0.5, "eta_bias": 0.05, "eta_critic": 0.3,
               "eligibility_steps": 12}
     reward.update(overrides.pop("reward", {}))
@@ -136,11 +144,35 @@ def make_brain(seed: int, modules: tuple[int, ...], **overrides: Any) -> Brain:
     learning.update(overrides.pop("learning", {}))
     options = {"working_memory_amplitude": 0.3, "working_memory_decay": 0.8, "consolidation": 0.5}
     options.update(overrides)
-    return Brain.compose(
+    brain = Brain.compose(
         inputs=N_IN, actions=N_BEH + N_VOICE, slots=(N_BEH, N_VOICE),
         modules=modules, seed=seed, reward=ActorCriticConfig(**reward),
         learning=LearnerConfig(**learning), **options,
     )
+    _weigh_memory(brain, memory)
+    return brain
+
+
+def _weigh_memory(brain: Brain, memory: dict[str, float]) -> None:
+    """How much the Cadence listens to its collective memory, and how one body's last outcome counts.
+
+    The memory learns quickly and well: within a few hundred beats it predicts that eating
+    pays when hungry and costs when full, that corrupt fruit hurts, and so on. The slow
+    synaptic policy cannot yet tell those situations apart in a game's time; it settles on a
+    habit that is right on average (resting, which is never punished). Cadence adds the
+    memory's recall to the motor drive at strength 1, and at that strength the habit won: a
+    hungry Cadlet rested half the time although its memory said eating was far better.
+    ``amplitude`` weighs the recall more, for every behaviour alike.
+
+    ``rate`` is how strongly each body's own fast record holds its last outcome on top of the
+    shared memory (Cadence's default is 1: exactly what just happened). In a crowd most walks
+    to food end with someone else eating it first, and at rate 1 one such miss told that body
+    for many beats that food does not help hunger. A lower rate keeps it a nudge.
+    """
+    mem = brain.hippocampus
+    if mem is not None:
+        mem.amplitude = float(memory["amplitude"])
+        mem.rate = float(memory["rate"])
 
 
 def satisfaction(before: float, relief: float) -> float:
@@ -1014,6 +1046,9 @@ class World:
             "td_error": float(learn.get("td_error", 0.0)),
             "updates": int(self.brain.learner.updates) if hasattr(self.brain.learner, "updates") else 0,
             "writes": int(getattr(self.brain.hippocampus, "writes", 0)),
+            # how the collective memory is weighed (MEMORY): recall strength, last-outcome rate
+            "memory": [float(getattr(self.brain.hippocampus, "amplitude", 0.0)),
+                       float(getattr(self.brain.hippocampus, "rate", 0.0))],
             "rows": cap,
         }
         for t in self.cadlets.values():
@@ -1355,6 +1390,8 @@ class World:
             self.brain = Brain.load(p)
         if len(self.brain.sensory_index) != N_IN:
             raise ValueError("this Cadence was saved by an older version with different senses")
+        # an older save weighed its memory at Cadence's defaults; what it learned is kept as it is
+        _weigh_memory(self.brain, MEMORY)
         self.stage, self.cap, self.beat = world["stage"], world["cap"], world["beat"]
         self.next_id, self.glitch, self.glitch_beat = world["next_id"], world["glitch"], world["glitch_beat"]
         self.started, self.rows, self.stats = world["started"], world["rows"], world["stats"]

@@ -72,6 +72,9 @@ def main() -> None:
     b = run(w2, 25)
     same = [(c["x"], c["y"], c["a"]) for c in a["cadlets"]] == [(c["x"], c["y"], c["a"]) for c in b["cadlets"]]
     check(same and a["beat"] == b["beat"], "a save continues identically")
+    weighed = lambda world: (world.brain.hippocampus.amplitude, world.brain.hippocampus.rate)  # noqa: E731
+    want = (cadlets.MEMORY["amplitude"], cadlets.MEMORY["rate"])
+    check(weighed(w) == want and weighed(w2) == want, "the collective memory is weighed as configured, also after a load")
 
     # crush: death by the hand, witnesses frightened
     w.apply({"type": "hatch"})

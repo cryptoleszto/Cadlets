@@ -36,6 +36,7 @@ SCHEDULES = {
     "late_cruel": [(0, "absent"), (300, "cruel")],
     "turncoat": [(0, "kind"), (450, "cruel")],
     "redeemer": [(0, "cruel"), (450, "kind")],
+    "story": [(0, "kind"), (400, "cruel"), (800, "kind")],  # the landing page's "they learn who you are"
 }
 
 

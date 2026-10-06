@@ -275,7 +275,7 @@ class Clearing {
 // hop; the rest keep to the far side, turned away (kind) or huddled and trembling (cruel).
 const NEAR = [[62, 31], [80, 31], [98, 31], [116, 31], [71, 51], [89, 51], [107, 51], [125, 51]];
 const FAR = [[2, 27], [20, 27], [38, 27], [11, 43], [29, 43], [2, 59], [20, 59], [38, 59], [47, 43]];
-const MIDDLE = [70, 45];
+const MIDDLE = [[70, 45], [86, 49], [78, 31]]; // the wary few who still come to a cruel hand
 
 function crowds() {
   const out = [];
@@ -287,12 +287,16 @@ function crowds() {
     c.style.maxWidth = c.width * 2 + "px";
     const r = rng(come * 31 + (cruel ? 7 : 0));
     const bodies = [];
+    const away = 10 - come;
+    // the ones keeping their distance, spread evenly over the far side whatever their number
+    // (the innermost far spot, FAR[8], is only for a crowd hiding from a cruel hand)
+    const far = (i) => FAR[Math.round((i * (FAR.length - 2)) / Math.max(1, away - 1))];
     if (cruel) {
-      bodies.push({ x: MIDDLE[0], y: MIDDLE[1], kind: "wary", phase: 0 });
-      for (let i = 0; i < 10 - come; i++) bodies.push({ x: FAR[i][0], y: FAR[i][1], kind: r() < 0.7 ? "scared" : "fleeing", phase: r() * 6 });
+      for (let i = 0; i < come; i++) bodies.push({ x: MIDDLE[i][0], y: MIDDLE[i][1], kind: "wary", phase: r() * 6 });
+      for (let i = 0; i < away; i++) bodies.push({ x: FAR[i][0], y: FAR[i][1], kind: r() < 0.7 ? "scared" : "fleeing", phase: r() * 6 });
     } else {
       for (let i = 0; i < come; i++) bodies.push({ x: NEAR[i][0], y: NEAR[i][1], kind: "happy", phase: r() * 6 });
-      for (let i = 0; i < 10 - come; i++) bodies.push({ x: FAR[i * 4][0], y: FAR[i * 4][1], kind: "away", phase: r() * 6 });
+      for (let i = 0; i < away; i++) bodies.push({ x: far(i)[0], y: far(i)[1], kind: "away", phase: r() * 6 });
     }
     bodies.sort((a, b) => a.y - b.y);
     out.push({ c, g: c.getContext("2d"), bodies, cruel });
