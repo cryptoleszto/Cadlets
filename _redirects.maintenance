@@ -1,6 +1,5 @@
 # Hard maintenance block on Cloudflare (Workers static assets or Pages). It is ON while this file is named "_redirects"
 # (tools/build_site.py copies it into the build) and OFF as "_redirects.maintenance". While on,
 # every request for the game goes to the landing page, which explains (from site.json).
-# See DEPLOY.md.
 /play       /?maintenance  302
 /play.html  /?maintenance  302

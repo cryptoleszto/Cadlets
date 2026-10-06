@@ -4,7 +4,7 @@ Cloudflare runs this on every push (build command ``python3 tools/build_site.py`
 publishes ``dist``); it needs nothing beyond the Python standard library. Only what the browser loads is
 copied: the pages, css/, js/, assets/, py/cadlets.py, vendor/ (with the Cadence licence and the
 wasm32 patch), site.json and _headers, plus _redirects when that file exists (the hard maintenance
-block, see DEPLOY.md). The tools, README and local server stay out.
+block). The tools, README and local server stay out.
 
 The build fails (exit 1) if a file is over Cloudflare's 25 MiB limit, if there are more files than
 it allows, or if a page, stylesheet or script refers to a local file that is not in the build.

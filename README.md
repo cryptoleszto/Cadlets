@@ -14,7 +14,7 @@ runs in a Web Worker in your browser, offline. The fonts are served from the sit
 loads from anywhere else. `serve.py` applies the site's `_headers` like the live site does.
 
 **Deploying:** Cloudflare (a Worker serving static assets, `wrangler.jsonc`), built with
-`python3 tools/build_site.py`; see [DEPLOY.md](DEPLOY.md).
+`python3 tools/build_site.py` (build command) and `npx wrangler deploy`.
 
 ## Playing
 
@@ -217,7 +217,7 @@ A broken frame no longer stops the picture: the render loop logs the error and d
 - **Game:** checks at start (closed: back to the landing page) and every 5 minutes while playing
   (closed: the Cadence is saved, the player is told, and sent to the landing page).
 - Set `"status": "open"` to reopen. On Cloudflare a push redeploys in about a minute, and
-  `_headers` keeps `site.json` from being cached (DEPLOY.md has the routine).
+  `_headers` keeps `site.json` from being cached.
 - The check runs in the browser, so someone determined could still open the game. For a hard block on
   Cloudflare, also rename `_redirects.maintenance` to `_redirects` (and back afterwards).
 - If `site.json` cannot be read, the site counts as open.
