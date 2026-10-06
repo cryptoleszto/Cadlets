@@ -39,15 +39,19 @@ INPUTS = [
     "heard_ba", "heard_li", "heard_mo",
     "content",  # satiety: nothing presses, so resting is worth more than running
     "fear",     # rises when the hand hurts you or someone near you; fleeing relieves it
+    "fatigue",  # tiredness, felt once it presses: grows while awake, fastest at night
+    "night",    # it is dark: without this the mind could not learn that night is for sleeping
 ]
 N_IN, N_BEH, N_VOICE = len(INPUTS), len(BEHAVIORS), len(VOICES)
 CONTENT = INPUTS.index("content")
 FEAR = INPUTS.index("fear")
+FATIGUE = INPUTS.index("fatigue")
+NIGHT = INPUTS.index("night")
 EAT, BATHE, PLAY, CUDDLE, SLEEP, HAND, FLEE, WANDER = range(N_BEH)
 
 # The behaviour that relieves each need; used only for *measuring* competence,
 # never for choosing actions.
-NEED_REMEDY = {"hunger": (EAT,), "dirt": (BATHE,), "boredom": (PLAY, CUDDLE), "pain": (SLEEP,)}
+NEED_REMEDY = {"hunger": (EAT,), "dirt": (BATHE,), "boredom": (PLAY, CUDDLE), "pain": (SLEEP,), "fatigue": (SLEEP,)}
 
 WORLD_W, WORLD_H = 40.0, 24.0
 
@@ -75,6 +79,12 @@ TUNE = {
     "terror_reach": 8.0,   # during TERROR, a hand this close (tiles) sends a Cadlet bolting, screaming
     "whole_pop": 40,       # the ending: after the last evolution, at least this many alive...
     "whole_beats": 720,    # ...for this many beats in all (three days) and the Cadence is whole
+    "fatigue_day": 0.0035,  # tiredness gained per awake beat by day...
+    "fatigue_night": 0.012, # ...and at night: a Cadlet that never sleeps is exhausted by its first night
+    "rest_night": 0.03,     # tiredness slept off per beat at night (a night's sleep clears it)...
+    "rest_day": 0.012,      # ...and in a daytime nap, which helps far less
+    "rest_joy": 5.0,        # how good sleeping it off feels (scales the usual satisfaction)
+    "tired_split": 0.8,     # tired Cadlets can still split in two; exhausted ones cannot
     "glitch_beat": 600,   # the code rewrites itself once the Cadence has reached stage 2 and this beat
     "metabolism": [1.0, 1.1, 1.2, 1.3],  # need growth multiplier per evolution stage
     "regrow": 2,          # beats per new fruit on a tree
@@ -174,6 +184,7 @@ class Cadlet:
     hunger: float = 0.15
     dirt: float = 0.1
     boredom: float = 0.15
+    fatigue: float = 0.1
     hp: float = 1.0
     age: int = 0
     content: int = 0
@@ -611,9 +622,15 @@ class World:
                 t.state = "idle"
         elif a == SLEEP:
             t.state = "sleep"
+            night = self.is_night()
             before = t.hp
-            t.hp = _clip01(t.hp + (0.09 if self.is_night() else 0.06))
+            t.hp = _clip01(t.hp + (0.09 if night else 0.06))
             t.reward += (t.hp - before) * 1.5
+            # sleep clears tiredness: a night's sleep fully, a daytime nap only a little
+            tired = t.fatigue
+            relief = min(tired, TUNE["rest_night"] if night else TUNE["rest_day"])
+            t.fatigue -= relief
+            t.reward += max(0.0, satisfaction(tired, relief)) * TUNE["rest_joy"]
         elif a == HAND:
             if self.hand is not None:
                 t.target = self.hand
@@ -758,6 +775,8 @@ class World:
             t.hunger = _clip01(t.hunger + TUNE["hunger"] * k)
             t.dirt = _clip01(t.dirt + TUNE["dirt"] * k)
             t.boredom = _clip01(t.boredom + TUNE["boredom"] * k)
+            if not asleep:
+                t.fatigue = _clip01(t.fatigue + (TUNE["fatigue_night"] if night else TUNE["fatigue_day"]))
             if t.terror > 0:
                 # terror drains within terror_beats (about a minute at 1x), faster than ordinary fear
                 t.terror -= 1
@@ -767,15 +786,16 @@ class World:
             t.curiosity = min(1.0, t.curiosity + 0.004)
             if corpses and self._nearest(t.x, t.y, corpses)[1] < 3:
                 t.boredom = _clip01(t.boredom + 0.01)  # grief
-            critical = sum(1 for v in (t.hunger, t.dirt, t.boredom) if v >= 0.9)
+            critical = sum(1 for v in (t.hunger, t.dirt, t.boredom, t.fatigue) if v >= 0.9)
             before = t.hp
             if critical:
                 t.hp -= TUNE["drain"] * critical
-            elif max(t.hunger, t.dirt, t.boredom) < 0.6:
+            elif max(t.hunger, t.dirt, t.boredom, t.fatigue) < 0.6:
                 t.hp = _clip01(t.hp + 0.01)
             if t.hp < before:
                 t.reward -= (before - t.hp) * TUNE["pain"]
-            good = max(t.hunger, t.dirt, t.boredom) < TUNE["content_need"] and t.hp > 0.85 and not t.sick
+            good = (max(t.hunger, t.dirt, t.boredom) < TUNE["content_need"] and t.fatigue < TUNE["tired_split"]
+                    and t.hp > 0.85 and not t.sick)
             t.content = t.content + 1 if good else max(0, t.content - 2)
             if t.hp <= 0:
                 self._death(t)
@@ -786,7 +806,7 @@ class World:
     def _cause(self, t: Cadlet) -> str:
         if self.beat - t.hurt_by_hand <= 2:
             return "hand"
-        worst = max((t.hunger, "hunger"), (t.dirt, "filth"), (t.boredom, "despair"))
+        worst = max((t.hunger, "hunger"), (t.dirt, "filth"), (t.boredom, "despair"), (t.fatigue, "exhaustion"))
         if worst[0] >= 0.9:
             return worst[1]
         return "poison" if t.sick else "injury"
@@ -820,7 +840,7 @@ class World:
         if parent is not None:
             t.generation = parent.generation + 1
             t.parent = parent.id
-            t.hunger, t.dirt, t.boredom = parent.hunger, parent.dirt, parent.boredom
+            t.hunger, t.dirt, t.boredom, t.fatigue = parent.hunger, parent.dirt, parent.boredom, parent.fatigue
             t.facing = -parent.facing
         self.cadlets[t.id] = t
         self.rows[row] = t.id
@@ -933,7 +953,9 @@ class World:
         if heard:
             o[9 + heard] = 0.6
         o[FEAR] = _clip01(t.fear / 0.8)
-        o[CONTENT] = TUNE["content"] * (1.0 - max(o[0], o[1], o[2], o[3], o[FEAR]))
+        o[FATIGUE] = pang(t.fatigue)
+        o[NIGHT] = 1.0 if self.is_night() else 0.0
+        o[CONTENT] = TUNE["content"] * (1.0 - max(o[0], o[1], o[2], o[3], o[FEAR], o[FATIGUE]))
         return o
 
     # ------------------------------------------------------------------ the mind
@@ -993,7 +1015,7 @@ class World:
             # Everyone's state is recorded, silent or not, so that a glyph's meaning is
             # measured against the whole Cadence (row 0 = silence).
             self.lexicon[voice, beh] += 1
-            needs = (t.hunger, t.dirt, t.boredom, 1.0 - t.hp)
+            needs = (t.hunger, t.dirt, t.boredom, max(1.0 - t.hp, t.fatigue))
             if max(needs) > 0.5:
                 self.lexicon_need[voice, int(np.argmax(needs))] += 1
         self._row_probs = probs
@@ -1043,7 +1065,7 @@ class World:
         w = self.window
         w["n"] += 1
         w["reward"] += t.last_reward
-        needs = {"hunger": t.hunger, "dirt": t.dirt, "boredom": t.boredom, "pain": 1.0 - t.hp}
+        needs = {"hunger": t.hunger, "dirt": t.dirt, "boredom": t.boredom, "pain": 1.0 - t.hp, "fatigue": t.fatigue}
         need, level = max(needs.items(), key=lambda kv: kv[1])
         # Hungry beside a corrupt tree is a different question (see "poisoned"); skip it here.
         if level >= 0.55 and not t.held and not (need == "hunger" and o[5] > 0):
@@ -1092,6 +1114,7 @@ class World:
         "call": ({"hunger": 0.2, "dirt": 0.2, "boredom": 0.6, "apple": 0.3, "bath": 0.3, "ball": 0.2, "friend": 0.5, "heard_ba": 0.6}, (CUDDLE,)),
         "content": ({"apple": 0.4, "bath": 0.3, "ball": 0.3, "friend": 0.5}, (SLEEP,)),
         "afraid": ({"hunger": 0.3, "dirt": 0.3, "boredom": 0.3, "apple": 0.3, "bath": 0.3, "ball": 0.3, "friend": 0.4, "hand": 0.8, "fear": 0.9}, (FLEE,)),
+        "tired": ({"hunger": 0.2, "dirt": 0.2, "boredom": 0.2, "apple": 0.3, "bath": 0.3, "ball": 0.3, "friend": 0.4, "fatigue": 0.9, "night": 1.0}, (SLEEP,)),
     }
 
     def _probe(self) -> None:
@@ -1115,7 +1138,7 @@ class World:
                 spec, _ = self.PROBES[name]
                 for key, v in spec.items():
                     rows[i, INPUTS.index(key)] = v
-                rows[i, CONTENT] = TUNE["content"] * (1.0 - max(rows[i, :4].max(), rows[i, FEAR]))
+                rows[i, CONTENT] = TUNE["content"] * (1.0 - max(rows[i, :4].max(), rows[i, FEAR], rows[i, FATIGUE]))
             try:
                 phases = self.brain.imagine([rows], budget=1024, tolerance=3e-3)
             except Exception:  # pragma: no cover - diagnostic only
@@ -1154,8 +1177,9 @@ class World:
         learn("apples", specific("hungry", (EAT,), 0.4, 0.2))
         learn("baths", specific("dirty", (BATHE,), 0.4, 0.2))
         learn("play", specific("bored", (PLAY, CUDDLE), 0.5, 0.2))
-        learn("rest", specific("hurt", (SLEEP,), 0.3, 0.15, skip=("content",)))
-        learn("calm", specific("content", (SLEEP,), 0.35, 0.15, skip=("hurt",)))
+        learn("rest", specific("hurt", (SLEEP,), 0.3, 0.15, skip=("content", "tired")))
+        learn("calm", specific("content", (SLEEP,), 0.35, 0.15, skip=("hurt", "tired")))
+        learn("night", specific("tired", (SLEEP,), 0.35, 0.15, skip=("content", "hurt")))
         if self.glitch and self.glitch_beat is not None and self.beat - self.glitch_beat > 30:
             learn("glitch", p["glitched"][EAT] < 0.15 and p["hungry"][EAT] > 0.35)
         if self.stats["pets"] + self.stats["hand_fed"] >= 4:
@@ -1224,7 +1248,7 @@ class World:
                 "conf": round(float(self.confidence[t.row]), 3), "r": round(t.last_reward, 3),
                 "tx": None if t.target is None else round(t.target[0], 2),
                 "ty": None if t.target is None else round(t.target[1], 2),
-                "c": t.content, "births": t.births, "row": t.row, "fe": round(t.fear, 2),
+                "c": t.content, "births": t.births, "row": t.row, "fe": round(t.fear, 2), "fa": round(t.fatigue, 2),
             })
         things = [{"id": o.id, "k": o.kind, "x": round(o.x, 3), "y": round(o.y, 3),
                    **{k: v for k, v in o.data.items() if k in ("glitched", "fruit", "occupants", "bones", "facing", "hatch", "dropped")}}

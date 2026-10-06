@@ -33,8 +33,8 @@ The Cadence autosaves to IndexedDB, and **CONTINUE THE CADENCE** resumes the sam
 
 ## How the Cadence library drives them
 
-- **One mind, many bodies.** `Brain.compose(inputs=15, actions=8+4, slots=(8, 4), modules=(32, 16))`
-  is built once: 91 neurons and 1,762 parameters. Each living Cadlet is one **stream** (one batch row).
+- **One mind, many bodies.** `Brain.compose(inputs=17, actions=8+4, slots=(8, 4), modules=(32, 16))`
+  is built once: 93 neurons and 1,852 parameters. Each living Cadlet is one **stream** (one batch row).
   Graph weights, the critic and the consolidated associative memory belong to the whole Cadence.
   Each row keeps its own working trace, fast memory residual and eligibility.
 - **One beat = one `Brain.step`.** Each body carries out the action chosen last beat. The world
@@ -43,8 +43,13 @@ The Cadence autosaves to IndexedDB, and **CONTINUE THE CADENCE** resumes the sam
   two motor slots that settle together: a behaviour (`eat bathe play cuddle sleep hand flee wander`)
   and a voice (`silence ▢ ◇ ✕`).
 - **Senses** (`py/cadlets.py`, `World.observe`): felt needs (they register only once they press),
-  pain, fear, contentment (nothing presses), nearest food and whether it looks corrupt, tub,
-  ball, friend, your hand, and the glyph just heard.
+  pain, fear, tiredness, contentment (nothing presses), whether it is night, nearest food and
+  whether it looks corrupt, tub, ball, friend, your hand, and the glyph just heard.
+- **Tiredness.** It grows while a Cadlet is awake, slowly by day and fast at night. A night's sleep
+  clears it; a daytime nap barely helps. At 90% it drains health like hunger does, and a Cadlet that
+  never sleeps dies of exhaustion. Sleeping it off is rewarded, so they learn "THE NIGHT IS FOR SLEEP"
+  (all 6 test colonies; with random choices instead of a mind, none of 6 evolves and they keep dying of
+  exhaustion).
 - **The hand is learned, not scripted.** Reaching your hand is mildly rewarding while it's novel
   (curiosity wears off with each visit). What you do then decides what they learn. Pets and
   hand-feeding are real rewards. A throw, a squeeze or a crush hurts, and every Cadlet that
@@ -75,8 +80,10 @@ The Cadence autosaves to IndexedDB, and **CONTINUE THE CADENCE** resumes the sam
 Brain settings are in `make_brain` (`py/cadlets.py`). They follow the Cadence library's reward guide for
 continuing contextual tasks: a softened working trace (amplitude 0.3, decay 0.8), fast consolidation
 (0.5), actor rate 0.5, softmax temperature 0.15, and qualified free answers. At 1× a beat lasts
-1.8 s. A Cadlet walks for part of it (short errands are strolls; only long, pressing trips
-are runs) and then does the thing. Every outcome (a kick, a bite, a bath) plays when it arrives.
+1.8 s. A Cadlet heading somewhere walks for part of it (short errands are strolls; only long,
+pressing trips are runs) and then does the thing; every outcome (a kick, a bite, a bath) plays when
+it arrives. A Cadlet that is only walking or wandering keeps going straight into the next beat, and
+one standing about looks around, so nobody freezes between beats.
 
 ## What to watch for
 
@@ -146,6 +153,7 @@ and slow beats are counted.
 - `python tools/replay.py cadlets-debug-….json --beats 100` prints the report's warnings and errors,
   loads the save natively and runs it on, so a simulation bug can be reproduced under a debugger.
 - In the browser console: `cadlets.log.all()` shows the log, `cadlets.log.download()` saves it.
+- Bug reports and contact: cryptoleszto@gmail.com (the game asks players to email the debug report there).
 
 A broken frame no longer stops the picture: the render loop logs the error and draws the next one.
 

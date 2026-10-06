@@ -9,7 +9,7 @@ export const BEH_COLORS = {
   eat: "#d63b2b", bathe: "#4f8fdc", play: "#f2c84b", cuddle: "#e8607a",
   sleep: "#7b6bd6", hand: "#f1e3c9", flee: "#8a9499", wander: "#4c9b31",
 };
-const NEED_ICON = { hunger: "i_apple", filth: "i_tub", despair: "i_ball", poison: "i_poison", injury: "i_bang" };
+const NEED_ICON = { hunger: "i_apple", filth: "i_tub", despair: "i_ball", poison: "i_poison", injury: "i_bang", exhaustion: "i_zzz" };
 
 const LESSONS = {
   apples: { icon: "i_apple", text: "<b>APPLES</b> END HUNGER" },
@@ -17,6 +17,7 @@ const LESSONS = {
   play: { icon: "i_ball", text: "<b>PLAY</b> CURES BOREDOM" },
   rest: { icon: "i_zzz", text: "<b>SLEEP</b> HEALS WOUNDS" },
   calm: { icon: "i_zzz", text: "WHEN NOTHING PRESSES, <b>REST</b>" },
+  night: { icon: "i_zzz", text: "THE NIGHT IS FOR <b>SLEEP</b>" },
   glitch: { icon: "i_poison", text: "<b>CORRUPT FRUIT</b> IS POISON" },
   hand_kind: { icon: "i_hand", text: "YOUR <b>HAND</b> IS KIND" },
   hand_cruel: { icon: "i_hand", text: "TO <b>FLEE</b> YOUR HAND" },
@@ -128,6 +129,7 @@ export function hud(snap) {
   // Toward the next evolution; after the last one, how full the forest is (the mind's room).
   const next = snap.next;
   const room = next || snap.cap || n || 1;
+  $("#pop-of").textContent = `/${room}`;
   $("#pop").style.setProperty("--p", Math.min(100, (n / room) * 100));
   $("#pop").classList.toggle("final", !next);
   $("#pop").title = next ? `${n} alive · the Cadence evolves at ${next}` : `${n} of ${room} alive · the Cadence has grown as far as this forest allows`;
@@ -139,10 +141,11 @@ export function hud(snap) {
   if (!next && n) {
     if (snap.ended != null) goal = "THE CADENCE IS WHOLE";
     else {
+      // counted in days spent whole (40+ alive) since the last evolution, not calendar days
       const need = snap.whole_pop || 40, beats = snap.whole_beats || 720, days = Math.round(beats / 240);
       whole = Math.min(1, (snap.whole || 0) / beats);
-      const day = Math.min(days, Math.floor((snap.whole || 0) / 240) + 1);
-      goal = n >= need ? `KEEP THE CADENCE WHOLE · DAY ${day} OF ${days}` : `KEEP ${need} ALIVE · ${n} NOW · DAY ${day} OF ${days}`;
+      const done = `${Math.min(days, (snap.whole || 0) / 240).toFixed(1)} OF ${days} DAYS DONE`;
+      goal = n >= need ? `KEEP ${need}+ ALIVE · ${done}` : `KEEP ${need}+ ALIVE · ${n} NOW · ${done}`;
     }
   }
   if (!n && !eggs) goal = "THE CADENCE IS GONE";
@@ -278,7 +281,7 @@ function chart(snap) {
   g.fillText("100%", 2, 10); g.fillText("CHANCE", w - 40, h - 0.125 * h - 3);
 }
 
-const PROBE_LABEL = { content: "CONTENT", hungry: "HUNGRY", dirty: "DIRTY", bored: "BORED", hurt: "HURT", glitched: "CORRUPT", hand: "HAND NEAR", afraid: "AFRAID", call: "HEARS ▢" };
+const PROBE_LABEL = { content: "CONTENT", hungry: "HUNGRY", dirty: "DIRTY", bored: "BORED", tired: "TIRED, NIGHT", hurt: "HURT", glitched: "CORRUPT", hand: "HAND NEAR", afraid: "AFRAID", call: "HEARS ▢" };
 
 function probes(snap) {
   const el = $("#m-probes");
@@ -302,7 +305,7 @@ function probes(snap) {
   }
 }
 
-const IN_LABEL = { hunger: "HUNGER", dirt: "DIRT", boredom: "BOREDOM", pain: "PAIN", apple: "FOOD NEAR", glitched: "CORRUPT", bath: "TUB NEAR", ball: "BALL NEAR", friend: "FRIEND", hand: "HAND", heard_ba: "HEARD ▢", heard_li: "HEARD ◇", heard_mo: "HEARD ✕", content: "CONTENT", fear: "FEAR" };
+const IN_LABEL = { hunger: "HUNGER", dirt: "DIRT", boredom: "BOREDOM", pain: "PAIN", apple: "FOOD NEAR", glitched: "CORRUPT", bath: "TUB NEAR", ball: "BALL NEAR", friend: "FRIEND", hand: "HAND", heard_ba: "HEARD ▢", heard_li: "HEARD ◇", heard_mo: "HEARD ✕", content: "CONTENT", fear: "FEAR", fatigue: "TIRED", night: "NIGHT" };
 
 function memory(snap) {
   const c = $("#m-memory");
@@ -356,7 +359,7 @@ function one(snap) {
   const sign = (v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}`;
   el.innerHTML = `
     <div class="needs">
-      ${meter("HUNGER", sel.h)}${meter("DIRT", sel.d)}${meter("BOREDOM", sel.b)}${meter("FEAR", sel.fe || 0)}${meter("HEALTH", sel.hp, true)}
+      ${meter("HUNGER", sel.h)}${meter("DIRT", sel.d)}${meter("BOREDOM", sel.b)}${meter("TIRED", sel.fa || 0)}${meter("FEAR", sel.fe || 0)}${meter("HEALTH", sel.hp, true)}
     </div>
     <div class="kv">
       <span>INTENT</span><span>${sel.a.toUpperCase()} · ${(sel.conf * 100).toFixed(0)}% SURE</span>
@@ -433,6 +436,6 @@ function lessons(snap) {
 
 export function deathText(e) {
   if (e.cause === "hand") return { html: `${e.name.toUpperCase()} WAS KILLED BY YOUR HAND`, icon: "i_skull" };
-  const how = { hunger: "OF HUNGER", filth: "OF FILTH", despair: "OF DESPAIR", poison: "OF POISON", injury: "OF ITS WOUNDS", hand: "BY YOUR HAND" }[e.cause] || "";
+  const how = { hunger: "OF HUNGER", filth: "OF FILTH", despair: "OF DESPAIR", poison: "OF POISON", injury: "OF ITS WOUNDS", exhaustion: "OF EXHAUSTION", hand: "BY YOUR HAND" }[e.cause] || "";
   return { html: `${e.name.toUpperCase()} DIED ${how}`, icon: NEED_ICON[e.cause] || "i_skull" };
 }

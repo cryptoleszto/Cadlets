@@ -64,7 +64,8 @@ def main() -> None:
     snap = run(w, 1)
     check("hurt" in next(c for c in snap["cadlets"] if c["id"] == t.id)["ev"], "the throw is shown")
 
-    # save mid-life and continue identically
+    # save mid-life and continue identically (the hand is live input from the page, not saved)
+    w.apply({"type": "hand", "x": 0, "y": 0, "present": False})
     blob = w.save()
     a = run(w, 25)
     w2 = cadlets.World.load(blob)
@@ -107,7 +108,7 @@ def main() -> None:
     def ready() -> None:  # everyone able to split this very beat, if terror allowed it
         for t in w3.cadlets.values():
             t.content, t.age, t.last_split, t.sick, t.held = 99, 99, -999, 0, False
-            t.hunger = t.dirt = t.boredom = 0.1
+            t.hunger = t.dirt = t.boredom = t.fatigue = 0.1
             t.hp = 1.0
 
     born = w3.stats["born"]
@@ -156,6 +157,22 @@ def main() -> None:
         endings += [e for e in run(w4, 1)["events"] if e["type"] == "ending"]
     check(len(endings) == 1 and w4.ended is not None, "the Cadence becomes whole once (the ending)")
     check(cadlets.World.load(w4.save()).ended == w4.ended, "the ending survives a save")
+
+    # fatigue: awake it grows (fastest at night), sleep clears it, and exhaustion kills
+    w5 = cadlets.World(seed=8)
+    w5.apply({"type": "hatch"})
+    run(w5, 3)
+    t = next(iter(w5.cadlets.values()))
+    w5.beat = cadlets.DAY - 30  # into the night
+    t.fatigue, t.action = 0.8, cadlets.SLEEP
+    w5._act(t, [])
+    check(t.fatigue < 0.8 and t.state == "sleep", "sleep clears tiredness")
+    t.fatigue, t.hp, t.hunger, t.dirt, t.boredom = 1.0, 0.05, 0.1, 0.1, 0.1
+    t.action = cadlets.WANDER
+    snap = run(w5, 2)
+    died = [e for e in snap["events"] if e["type"] == "death"] + [e for e in w5.events if e["type"] == "death"]
+    check(w5.stats["deaths"].get("exhaustion", 0) >= 1, "a Cadlet that never sleeps dies of exhaustion")
+    check(len(w5.observe(next(iter(w5.cadlets.values()))) if w5.cadlets else cadlets.INPUTS) == cadlets.N_IN, "the mind senses tiredness and night")
 
     print()
     print("all passed" if not failures else f"{len(failures)} failed")

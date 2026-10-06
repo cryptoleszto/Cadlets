@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Cadlets · An artificial life</title>
-  <meta name="description" content="Hatch an egg and watch a colony of tiny creatures learn to live, on their own. Every Cadlet is a body of one unified mind, learning in your browser.">
+  <meta name="description" content="A small artificial life game. Hatch an egg and watch a colony of tiny creatures work out how to live, sharing one unified mind, right in your browser.">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Cadlets · An artificial life">
-  <meta property="og:description" content="One mind, many bodies. Hatch an egg and watch them learn, on their own, in your browser.">
+  <meta property="og:description" content="Hatch an egg and watch a colony of tiny creatures work out how to live, right in your browser.">
   <meta name="theme-color" content="#071a52">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,9 +24,10 @@
 
     <div class="hero-inner wrap">
       <h1 class="logo"><canvas id="logo" aria-hidden="true"></canvas><span class="sr">Cadlets</span></h1>
-      <p class="tagline">AN ARTIFICIAL LIFE · ONE MIND, MANY BODIES</p>
-      <p class="lede">Hatch an egg and watch a colony of tiny creatures learn to live, on their own.
-        Every Cadlet is a body of one unified mind, learning right here in your browser.</p>
+      <p class="tagline">A SMALL ARTIFICIAL LIFE</p>
+      <p class="lede">Hatch an egg and look after the little creatures that come out of it.
+        They work out for themselves what to eat, when to rest and whether to trust you.
+        All of them share one unified mind, and it runs right here in your browser.</p>
 
       <div class="cta" id="cta">
         <a class="plank-btn big play-link" href="play.html">PLAY</a>
@@ -37,16 +38,16 @@
         <div class="closed-head"><canvas data-icon="i_zzz" width="9" height="9"></canvas><h2>UNDER MAINTENANCE</h2></div>
         <p id="closed-msg">We are teaching the Cadence something new.</p>
         <p class="back" id="closed-back"></p>
-        <small>Your Cadence is safe in this browser and will be waiting for you.</small>
+        <small>Your colony is saved in this browser and will be right where you left it.</small>
       </div>
 
-      <p class="fine" id="fine">Free · runs in your browser · no account · about 8 MB on the first visit</p>
+      <p class="fine" id="fine">Free · no account needed · about 8 MB to load the first time</p>
     </div>
   </header>
 
   <section class="diorama" aria-label="A clearing with a few Cadlets wandering (decoration)">
     <div class="frame"><canvas id="field"></canvas></div>
-    <p class="caption">These Cadlets are only for show. The real ones think for themselves.</p>
+    <p class="caption">The Cadlets on this page are just decoration. The ones in the game decide for themselves.</p>
   </section>
 
   <main>
@@ -54,54 +55,54 @@
       <h2 class="heading">WHAT ARE CADLETS?</h2>
       <div class="intro">
       <div class="intro-text">
-        <p>Cadlets is an artificial life that lives in your browser. You hatch one egg. What comes out
-          eats, bathes, plays, sleeps, chirps, and <em>learns</em>. Nothing it does is scripted.</p>
-        <p>Every Cadlet is one stream of one unified mind, built with the <b>Cadence</b> library: a
-          continuing neural network that settles to an answer, acts, and learns from what really happened.
-          The bodies are separate, the mind is shared. What one of them learns, all of them know.
-          Together they are <b>the Cadence</b>.</p>
-        <p>You can help them, or you can hurt them. They will remember which.</p>
+        <p>Cadlets is a small artificial life game. You start with a single egg. The Cadlet that hatches
+          gets hungry, dirty and bored, and it has to <em>figure out</em> what to do about it. Nobody
+          wrote its behaviour. It learns from whatever happens to it.</p>
+        <p>When a Cadlet is doing well, it splits in two, and slowly a colony grows. They have separate
+          bodies but share one unified mind, built with the <b>Cadence</b> library, so something one of
+          them learns is known to all of them. In the game that shared mind is called <b>the Cadence</b>.</p>
+        <p>You can help them or you can hurt them, and they learn from that too.</p>
       </div>
       <figure class="portrait" aria-hidden="true">
         <div class="bubble"><canvas data-icon="g_ba" width="9" height="9"></canvas><span>=</span><canvas data-icon="i_apple" width="9" height="9"></canvas></div>
         <canvas data-icon="thr" width="20" height="21" class="big-cadlet"></canvas>
-        <figcaption>A Cadlet with a word for food</figcaption>
+        <figcaption>This one has a word for food</figcaption>
       </figure>
       </div>
     </section>
 
     <section class="wrap">
-      <h2 class="heading">ONE MIND. MANY BODIES.</h2>
+      <h2 class="heading">WHAT THEY DO</h2>
       <div class="cards">
         <article class="card">
           <span class="slot"><canvas data-icon="thr" width="20" height="21"></canvas></span>
           <h3>ONE UNIFIED MIND</h3>
-          <p>Up to 48 Cadlets share one mind. Its weights and its memory belong to the whole colony; each body keeps its own stream of thought.</p>
+          <p>Up to 48 Cadlets share a single mind. Whatever one of them figures out, the rest know too, though each one still has its own thoughts in the moment.</p>
         </article>
         <article class="card">
           <span class="slot"><canvas data-icon="i_apple" width="9" height="9"></canvas></span>
           <h3>THEY LEARN ON THEIR OWN</h3>
-          <p>Apples end hunger. Baths wash away dirt. When nothing presses, rest. They find out by living it, and you are told each time a lesson lands.</p>
+          <p>At first they just wander about. Then they work out that apples fix hunger, baths fix dirt and the night is for sleeping. You get a little message each time they learn something new.</p>
         </article>
         <article class="card">
           <span class="slot"><canvas data-icon="i_hand" width="9" height="9"></canvas></span>
           <h3>YOUR HAND MATTERS</h3>
-          <p>Pet them and feed them from your hand, and they come to you. Hurt them, and they learn to run. Go too far, and you will meet TERROR.</p>
+          <p>Pet them and feed them, and they start coming to your hand. Hurt them, and they learn to keep their distance. Keep it up and they panic.</p>
         </article>
         <article class="card">
           <span class="slot"><canvas data-icon="i_tree" width="9" height="9"></canvas></span>
-          <h3>THEY GROW AND EVOLVE</h3>
-          <p>Content Cadlets split in two. Fill the clearing and the Cadence evolves: 8, 16, 32, then 48 bodies, as the forest opens around them.</p>
+          <h3>THE COLONY GROWS</h3>
+          <p>Each time the clearing fills up, the forest opens a little wider and there is room for more of them, up to 48 in the end.</p>
         </article>
         <article class="card">
           <span class="slot"><canvas data-icon="g_li" width="9" height="9"></canvas></span>
-          <h3>THEY FIND WORDS</h3>
-          <p>Cadlets chirp in three glyphs. Watch long enough and a glyph may come to mean something: food, a bath, company.</p>
+          <h3>THEY MIGHT FIND WORDS</h3>
+          <p>They chirp with three little symbols. Watch for a while and one of them may start to mean something, like food or company. Some colonies never get there.</p>
         </article>
         <article class="card">
           <span class="slot"><canvas data-icon="i_sparkle" width="9" height="9"></canvas></span>
-          <h3>LOOK INSIDE THE MIND</h3>
-          <p>Open the MIND to see what the Cadence would do in private, its shared memory, one Cadlet's thoughts, and what it thinks of you.</p>
+          <h3>A LOOK INSIDE</h3>
+          <p>The MIND panel shows what they would do in different situations, what they remember, what a single Cadlet is thinking, and what they make of you.</p>
         </article>
       </div>
     </section>
@@ -112,51 +113,62 @@
         <li>
           <span class="step-art"><canvas data-icon="egg" width="12" height="15"></canvas></span>
           <h3><b>1</b> HATCH THE EGG</h3>
-          <p>Click it to hatch it sooner, or wait. One Cadlet, one mind, knowing nothing yet.</p>
+          <p>Click the egg, or just wait. Your first Cadlet comes out knowing nothing at all.</p>
         </li>
         <li>
           <span class="step-art"><canvas data-icon="i_hand" width="9" height="9"></canvas><canvas data-icon="i_apple" width="9" height="9"></canvas><canvas data-icon="i_ball" width="9" height="9"></canvas></span>
-          <h3><b>2</b> CARE, OR DON'T</h3>
-          <p>Drop apples, a ball, soap. Pet them. Build tubs and trees as they evolve. Or don't: they mostly manage alone.</p>
+          <h3><b>2</b> LOOK AFTER THEM</h3>
+          <p>Drop apples, a ball or some soap, and give them a pet. As the colony grows you get bathtubs and trees to place. They also manage fine without you.</p>
         </li>
         <li>
           <span class="step-art mind"><i></i>MIND</span>
           <h3><b>3</b> WATCH THEM LEARN</h3>
-          <p>"THE CADENCE HAS LEARNED: APPLES END HUNGER." Then baths, then play, then rest. Then whatever you teach them.</p>
+          <p>The first thing they usually learn is that apples end hunger. What comes after that depends a lot on you.</p>
         </li>
       </ol>
     </section>
 
     <section class="wrap">
-      <h2 class="heading">MEASURED, NOT CLAIMED</h2>
-      <div class="terminal">
-        <div class="term-head"><i></i>LESZTOSOFT // CADENCE.LAB</div>
-        <div class="stats">
-          <div class="stat"><b>6 / 6</b><span>test colonies grew and evolved. With random actions instead of a brain: 3 of 6, later.</span></div>
-          <div class="stat"><b>74–89%</b><span>of Cadlets come to a kind hand that pets and feeds them.</span></div>
-          <div class="stat"><b>2–17%</b><span>still come once that hand turns cruel. Trust collapses within a few hundred beats.</span></div>
-          <div class="stat"><b>78%</b><span>come back when a cruel hand turns kind. The Cadence holds no grudge.</span></div>
-        </div>
-        <p class="term-foot">Simulated players, 900–1,200 beats per run, compared with the same world driven by random actions.</p>
-      </div>
+      <h2 class="heading">THEY LEARN WHO YOU ARE</h2>
+      <p class="section-intro">We tried the game with a simulated player who started out kind, turned cruel,
+        and then tried to make up for it. This is how the Cadlets near the hand reacted along the way.</p>
+      <ol class="story">
+        <li class="story-step kind">
+          <span class="story-icons"><canvas data-icon="i_hand" width="9" height="9"></canvas><canvas data-icon="i_heart" width="9" height="9"></canvas></span>
+          <h3>WHEN YOU'RE KIND</h3>
+          <canvas class="crowd" data-come="8" data-mood="kind" aria-hidden="true"></canvas>
+          <p><b>8 in 10</b> come over to your hand.</p>
+        </li>
+        <li class="story-step cruel">
+          <span class="story-icons"><canvas data-icon="i_fist" width="9" height="9"></canvas></span>
+          <h3>WHEN YOU'RE CRUEL</h3>
+          <canvas class="crowd" data-come="1" data-mood="cruel" aria-hidden="true"></canvas>
+          <p><b>Hardly any</b> come close any more.</p>
+        </li>
+        <li class="story-step kind">
+          <span class="story-icons"><canvas data-icon="i_hand" width="9" height="9"></canvas><canvas data-icon="i_heart" width="9" height="9"></canvas></span>
+          <h3>WHEN YOU'RE KIND AGAIN</h3>
+          <canvas class="crowd" data-come="8" data-mood="kind" aria-hidden="true"></canvas>
+          <p>They forgive you. <b>Most</b> come back.</p>
+        </li>
+      </ol>
     </section>
 
     <section class="wrap faq">
       <h2 class="heading">GOOD TO KNOW</h2>
       <dl>
-        <div><dt>Where does it run?</dt><dd>Entirely in your browser. Python, NumPy and the Cadence library run as WebAssembly. The first visit loads about 8 MB; after that it starts from your browser's cache.</dd></div>
-        <div><dt>Where is my colony saved?</dt><dd>In this browser only, every 20 seconds and when you leave. Another browser or device starts its own Cadence. Clearing this site's data deletes it.</dd></div>
-        <div><dt>Does it end?</dt><dd>For now, yes. After its last evolution, keep at least 40 of them alive for three days and you will see how this Cadence's story ends. More is coming.</dd></div>
-        <div><dt>Can I start over?</dt><dd>Menu → LAY A NEW EGG gives you a new brain that knows nothing. If every Cadlet dies, a new egg appears for the same mind.</dd></div>
-        <div><dt>Does it work on my phone?</dt><dd>On modern phones, yes. It is at its best on a computer with a mouse.</dd></div>
-        <div><dt>Is it violent?</dt><dd>Only if you are. Your hand can throw, crush and terrify them, in pixel blood. Nothing forces you to.</dd></div>
-        <div><dt>Something broke.</dt><dd>Menu → DEBUG REPORT saves a file with what happened, so it can be fixed.</dd></div>
+        <div><dt>Where does it run?</dt><dd>Completely in your browser. Nothing about your colony is sent anywhere. The first visit downloads about 8 MB, and after that it loads from your browser's cache.</dd></div>
+        <div><dt>Where is my colony saved?</dt><dd>In this browser, every 20 seconds and whenever you leave. Another browser or device starts its own colony, and clearing this site's data deletes it.</dd></div>
+        <div><dt>Does it end?</dt><dd>Sort of. After the last evolution, keep at least 40 of them alive for three days and you reach the end of this chapter. More is on the way.</dd></div>
+        <div><dt>Can I start over?</dt><dd>Yes. Menu → LAY A NEW EGG gives you a fresh colony that knows nothing. If every Cadlet dies, a new egg appears, but the mind remembers.</dd></div>
+        <div><dt>Does it work on phones?</dt><dd>On recent phones, yes. It is nicer on a computer with a mouse.</dd></div>
+        <div><dt>Is it violent?</dt><dd>Only if you make it so. Your hand can throw and crush them, with pixel blood. You don't have to.</dd></div>
       </dl>
     </section>
 
     <section class="wrap final">
       <canvas data-icon="egg" width="12" height="15" class="final-egg"></canvas>
-      <p>An egg is waiting.</p>
+      <p id="final-line">Your egg is waiting.</p>
       <a class="plank-btn big play-link" href="play.html">PLAY</a>
     </section>
   </main>
@@ -164,9 +176,11 @@
   <footer>
     <div class="wrap foot">
       <p><b>CADLETS</b> · LesztoSoft · 2026</p>
+      <p>Found a bug, or just want to say hello? Write to <a href="mailto:cryptoleszto@gmail.com?subject=Cadlets">cryptoleszto@gmail.com</a>.
+        If something broke, the game's menu has a DEBUG REPORT you can attach.</p>
       <p>Inspired by Black Mirror's "Plaything". Not affiliated with Netflix or Night School Studio.</p>
-      <p>Minds by <a href="https://github.com/muellerberndt/cadence" rel="noopener">Cadence</a> (GPL-3.0). Runs on <a href="https://pyodide.org" rel="noopener">Pyodide</a> and NumPy.
-        <a href="https://github.com/cryptoleszto/Cadlets" rel="noopener">Source</a>.</p>
+      <p>The mind is built with <a href="https://github.com/muellerberndt/cadence" rel="noopener">Cadence</a> (GPL-3.0) and runs on <a href="https://pyodide.org" rel="noopener">Pyodide</a> and NumPy.
+        <a href="https://github.com/cryptoleszto/Cadlets" rel="noopener">Source code</a>.</p>
     </div>
   </footer>
 

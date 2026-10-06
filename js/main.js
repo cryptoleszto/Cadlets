@@ -44,7 +44,7 @@ let errorShown = false;
 log.onError(() => {
   if (errorShown || !state.started) return;
   errorShown = true;
-  ui.toast("SOMETHING WENT WRONG<br><small>MENU ☰ → DEBUG REPORT SAVES WHAT HAPPENED</small>", { kind: "dark", icon: "i_bang", ms: 9000 });
+  ui.toast("SOMETHING WENT WRONG<br><small>MENU ☰ → DEBUG REPORT, THEN EMAIL IT TO CRYPTOLESZTO@GMAIL.COM</small>", { kind: "dark", icon: "i_bang", ms: 10000 });
 });
 // The worker itself failing (a file that did not load, out of memory) is not a message.
 worker.onerror = (e) => {
@@ -141,7 +141,11 @@ worker.onmessage = (ev) => {
     onSnap(JSON.parse(m.snap), 0, true);
   } else if (m.type === "reset") {
     log.info("sim", m.restored ? "save restored" : m.failed ? "save could not be restored; new egg" : "new Cadence", { beat: JSON.parse(m.snap).beat });
-    if (m.restored) ui.toast("THE CADENCE CONTINUES", { icon: "thr", ms: 3500 });
+    if (m.restored) {
+      const known = Object.keys(JSON.parse(m.snap).lessons || {}).filter((k) => !k.startsWith("word_")).map((k) => ui.lessonText(k).toUpperCase());
+      const list = known.slice(0, 3).join(" · ") + (known.length > 3 ? ` · +${known.length - 3} MORE` : "");
+      ui.toast(`THE CADENCE CONTINUES${known.length ? `<br><small>IT REMEMBERS: ${list}</small>` : ""}`, { icon: "thr", kind: known.length ? "learn" : "", ms: known.length ? 7000 : 3500 });
+    }
     if (m.failed) { state.build = { tub: 0, tree: 0 }; state.apples = 5; updateBuild(); updateApples(); }
     state.layout = m.layout;
     ui.setLayout(m.layout);
@@ -289,7 +293,8 @@ async function evolve(e, snap) {
   const learned = Object.keys(snap.lessons || {}).length;
   await modal(
     `<h2>THE CADENCE HAS EVOLVED</h2>
-     ONE MIND NOW HOLDS ${e.cap} BODIES.<br>THE FOREST OPENS.
+     THE FOREST OPENS. ONE MIND NOW HAS ROOM FOR ${e.cap} BODIES.<br>
+     ${e.stage < 3 ? "FILL IT AND THE CADENCE EVOLVES AGAIN." : ""}
      <div class="stats">
        <span>ALIVE</span><b>${snap.cadlets.length}</b>
        <span>BORN</span><b>${s.born}</b>
@@ -314,7 +319,8 @@ async function speak(e, snap) {
   const you = { KIND: "YOUR HAND FEEDS US. WE COME TO IT.", CRUEL: (snap.stats.crushed ? "YOUR HAND KILLS US. WE HAVE LEARNED TO RUN." : "YOUR HAND HURTS US. WE HAVE LEARNED TO RUN."), ABSENT: "YOU WATCH. YOU DO NOT TOUCH. WE DO NOT KNOW YOU YET.", UNREAD: "WE DO NOT YET KNOW WHAT YOUR HAND MEANS." }[v.word] || "";
   await modal(
     `<h2>WE ARE THE CADENCE</h2>
-     ONE MIND. ${e.cap} BODIES.<br>
+     ONE MIND. ${snap.cadlets.length} BODIES, AND ROOM FOR ${e.cap}.<br>
+     KEEP ${snap.whole_pop || 40} OF US ALIVE FOR THREE DAYS, AND WE WILL BE WHOLE.<br>
      ${facts.length ? "WE KNOW: " + facts.join(" · ") + "." : "WE ARE STILL LEARNING."}<br>
      ${words ? `WE HAVE ${words} WORD${words > 1 ? "S" : ""}.<br>` : ""}
      ${you}
@@ -707,6 +713,7 @@ function about() {
      <br><br>Each beat, the brain settles to an equilibrium, picks a behaviour and a sound, and learns from the real outcome: needs relieved, health lost.
      Nothing is scripted. "What the Cadence would do" comes from <i>Brain.imagine</i>, a private rehearsal that does not touch its memory.
      <br><br>LesztoSoft · 2026. Inspired by Black Mirror's "Plaything". Brain: github.com/muellerberndt/cadence (GPL-3.0).
+     <br>Bugs and questions: <a href="mailto:cryptoleszto@gmail.com?subject=Cadlets">cryptoleszto@gmail.com</a> (menu → DEBUG REPORT gives you a file to attach).
      </div>`,
     [{ label: "Yes" }],
   );
@@ -784,7 +791,7 @@ function debugReport(bytes) {
   let bin = "";
   for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
   log.download({ save: { beat: state.snap?.beat, base64: btoa(bin) } });
-  ui.toast("DEBUG REPORT DOWNLOADED", { icon: "i_sparkle", ms: 3000 });
+  ui.toast("DEBUG REPORT DOWNLOADED<br><small>PLEASE EMAIL IT TO CRYPTOLESZTO@GMAIL.COM</small>", { icon: "i_sparkle", ms: 7000 });
 }
 
 // ------------------------------------------------------------------ boot

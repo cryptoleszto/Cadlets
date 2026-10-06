@@ -40,8 +40,9 @@ async function gate() {
   status.lastElementChild.textContent = "OPEN";
   if (save) {
     const day = Math.floor(save.beat / 240) + 1;
-    for (const a of document.querySelectorAll(".play-link")) a.innerHTML = `CONTINUE<small>YOUR CADENCE · DAY ${day} · BEAT ${save.beat}</small>`;
-    $("#fine").textContent = "Your Cadence is saved in this browser · free · no account";
+    for (const a of document.querySelectorAll(".play-link")) a.innerHTML = `CONTINUE<small>YOUR COLONY · DAY ${day} · BEAT ${save.beat}</small>`;
+    $("#final-line").textContent = "Your colony is waiting.";
+    $("#fine").textContent = "Your colony is saved in this browser · pick up where you left off";
   }
 }
 $("#status").classList.add("checking");
@@ -268,18 +269,75 @@ class Clearing {
   }
 }
 
+// ------------------------------------------------------------------ the story's crowds
+
+// Ten Cadlets per panel, with the hand on the right. Those who trust it gather close and
+// hop; the rest keep to the far side, turned away (kind) or huddled and trembling (cruel).
+const NEAR = [[62, 31], [80, 31], [98, 31], [116, 31], [71, 51], [89, 51], [107, 51], [125, 51]];
+const FAR = [[2, 27], [20, 27], [38, 27], [11, 43], [29, 43], [2, 59], [20, 59], [38, 59], [47, 43]];
+const MIDDLE = [70, 45];
+
+function crowds() {
+  const out = [];
+  for (const c of document.querySelectorAll("canvas.crowd")) {
+    const come = +c.dataset.come, cruel = c.dataset.mood === "cruel";
+    c.width = 168;
+    c.height = 64;
+    c.style.width = "100%";
+    c.style.maxWidth = c.width * 2 + "px";
+    const r = rng(come * 31 + (cruel ? 7 : 0));
+    const bodies = [];
+    if (cruel) {
+      bodies.push({ x: MIDDLE[0], y: MIDDLE[1], kind: "wary", phase: 0 });
+      for (let i = 0; i < 10 - come; i++) bodies.push({ x: FAR[i][0], y: FAR[i][1], kind: r() < 0.7 ? "scared" : "fleeing", phase: r() * 6 });
+    } else {
+      for (let i = 0; i < come; i++) bodies.push({ x: NEAR[i][0], y: NEAR[i][1], kind: "happy", phase: r() * 6 });
+      for (let i = 0; i < 10 - come; i++) bodies.push({ x: FAR[i * 4][0], y: FAR[i * 4][1], kind: "away", phase: r() * 6 });
+    }
+    bodies.sort((a, b) => a.y - b.y);
+    out.push({ c, g: c.getContext("2d"), bodies, cruel });
+  }
+  return out;
+}
+
+function drawCrowds(list, now) {
+  for (const { c, g, bodies, cruel } of list) {
+    g.clearRect(0, 0, c.width, c.height);
+    for (const b of bodies) {
+      let name = "thr", variant = "", dx = 0, hop = 0;
+      if (b.kind === "happy") { name = "thr_happy"; hop = Math.max(0, Math.sin(now / 240 + b.phase)) * 2; }
+      else if (b.kind === "wary") name = (now / 900) % 4 < 0.3 ? "thr_blink" : "thr";
+      else if (b.kind === "scared") { name = "thr_shock"; dx = Math.random() < 0.3 ? (Math.random() < 0.5 ? -1 : 1) : 0; }
+      else { name = "thr_step"; variant = "flip"; hop = Math.abs(Math.sin(now / 160 + b.phase)) * (b.kind === "fleeing" ? 2 : 0); }
+      g.fillStyle = "rgba(40, 20, 8, .35)";
+      g.fillRect(b.x + 4, b.y - 1, 12, 2);
+      g.drawImage(sprite(name, variant), Math.round(b.x + dx), Math.round(b.y - 21 - hop));
+      if (b.kind === "scared" && (now / 300 + b.phase) % 3 < 0.6) { g.fillStyle = "#a9dcff"; g.fillRect(b.x + 2, b.y - 20, 1, 2); }
+    }
+    // the hand, reaching in from the right: open when kind, grabbing when cruel
+    const hand = sprite(cruel ? "hand_grab" : "hand");
+    const bob = Math.round(Math.sin(now / 500) * 1.5);
+    g.drawImage(hand, c.width - hand.width - 4, 20 + bob);
+  }
+}
+
 // ------------------------------------------------------------------ start
 
 loadSprites().then(() => {
   paintIcons();
   logo.draw(performance.now()); // now with its Cadlet on the T
   const field = new Clearing($("#field"));
+  const crowdList = crowds();
+  drawCrowds(crowdList, 0);
   if (still) return;
+  let crowdsOn = false;
+  new IntersectionObserver(([e]) => { crowdsOn = e.isIntersecting; }).observe($(".story"));
   // animate only while the clearing is on screen and the tab is visible
   new IntersectionObserver(([e]) => { field.visible = e.isIntersecting; }).observe($("#field"));
   const loop = (now) => {
     if (field.visible && !document.hidden) field.frame(now);
     else field.last = 0;
+    if (crowdsOn && !document.hidden) drawCrowds(crowdList, now);
     requestAnimationFrame(loop);
   };
   requestAnimationFrame(loop);

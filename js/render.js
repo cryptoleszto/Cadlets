@@ -169,7 +169,10 @@ export class Renderer {
       // Walk for part of the beat and act for the rest: a short errand is a stroll,
       // only a long, pressing trip is a run, and there is always time left to do the thing.
       const pace = Math.max(1, snap.speed || 10);
-      b.moveMs = b.dist < 0.05 ? 0 : beatMs * Math.min(0.7, Math.max(0.25, 0.18 + 0.52 * b.dist / pace));
+      // Just walking (en route, wandering, fleeing): keep going for the whole beat and a little
+      // past it, so one beat's walk flows into the next instead of stopping at each beat.
+      b.flow = t.s === "walk" || t.s === "wander" || t.s === "flee";
+      b.moveMs = b.dist < 0.05 ? 0 : b.flow ? beatMs * 1.08 : beatMs * Math.min(0.7, Math.max(0.25, 0.18 + 0.52 * b.dist / pace));
       b.arrive = now + b.moveMs;
       const fly = this.flying.get(t.id);
       // forget the flight once the world has put the Cadlet where it landed (or gave up)
@@ -225,7 +228,7 @@ export class Renderer {
     }
     if (fly) return { x: fly.x1, y: fly.y1, k: 1 }; // landed; wait for the world to agree
     const lin = b.moveMs > 0 ? Math.min(1, Math.max(0, (now - this.t0) / b.moveMs)) : 1;
-    const k = 0.85 * lin + 0.15 * ease(lin); // nearly constant speed, soft start and stop
+    const k = b.flow ? lin : 0.85 * lin + 0.15 * ease(lin); // flowing walks keep a constant pace
     return { x: lerp(b.fx, b.x, k), y: lerp(b.fy, b.y, k), k };
   }
 
@@ -507,8 +510,8 @@ export class Renderer {
   }
 
   _asleep(t) {
-    // the "sleep" behaviour is a nap at night or when hurt, otherwise a quiet rest
-    return (this.snap && this.snap.night) || t.hp < 0.9;
+    // the "sleep" behaviour is real sleep at night, when hurt or when tired; otherwise a quiet rest
+    return (this.snap && this.snap.night) || t.hp < 0.9 || (t.fa || 0) > 0.45;
   }
 
   _face(t, b, now, moving) {
@@ -525,7 +528,9 @@ export class Renderer {
     if (s === "cuddle" || s === "play") return "thr_happy";
     if (s === "flee") return "thr_shock";
     if (s === "reach") return "thr_reach";
-    if (t.hp < 0.45 || Math.max(t.h, t.d, t.b) > 0.85) return "thr_sad";
+    if (t.hp < 0.45 || Math.max(t.h, t.d, t.b, t.fa || 0) > 0.85) return "thr_sad";
+    // heavy eyelids when tired
+    if ((t.fa || 0) > 0.6 && Math.floor(now / 650 + t.id) % 3 === 0) return "thr_blink";
     if (t.fe > 0.45) return "thr_shock";
     if (now > b.blink) { if (now > b.blink + 140) b.blink = now + 1800 + Math.random() * 3500; else return "thr_blink"; }
     return "thr";
@@ -547,6 +552,10 @@ export class Renderer {
     // a terrified bolt faces where it runs
     let flip = run && !up && dx < 0 ? "flip" : "";
     if (!up && name === "thr") name = t.f < 0 ? "thr_l" : "thr";
+    if (!run && !up && name === "thr_step" && t.f < 0) flip = "flip"; // a left-walker's stride faces left too
+    // standing about: they look around now and then and breathe, rather than freeze
+    const idle = !moving && !run && ["idle", "wait", "wander", "reach", "walk"].includes(t.s);
+    if (idle && name === (t.f < 0 ? "thr_l" : "thr") && Math.floor(now / 2300 + b.hop) % 4 === 0) name = t.f < 0 ? "thr" : "thr_l";
     const variant = t.s === "sick" && Math.random() < 0.08 ? "glitch" : flip;
     const img = sprite(name, variant);
     let hop = 0;
@@ -554,7 +563,7 @@ export class Renderer {
       hop = Math.abs(Math.sin(p.k * Math.PI * Math.max(2, Math.round(dist * 1.6)))) * 3;
       if (Math.random() < 0.15) this._particle("sweat", p.x - 0.3 * Math.sign(dx || 1), p.y - 1.3, -0.6 * Math.sign(dx || 1), -0.5, 500);
     } else if (moving) hop = Math.abs(Math.sin(p.k * Math.PI * Math.max(1, Math.round(b.dist * 1.3)))) * (t.s === "flee" ? 3 : 2);
-    else if (t.s !== "sleep") hop = Math.max(0, Math.sin(now / 420 + b.hop)) * 0.6;
+    else if (t.s !== "sleep") hop = Math.max(0, Math.sin(now / 420 + b.hop)) * (idle ? 1.2 : 0.6);
     if (p.flying) hop = 0;
     // newborns pop in
     const age = now - b.born;
