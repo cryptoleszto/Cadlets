@@ -1,0 +1,12 @@
+// Cloudflare Workers deployment: a static site, no Worker code. The build command
+// (python3 tools/build_site.py) makes dist/, and "npx wrangler deploy" publishes it.
+// dist/_headers and dist/_redirects apply as on Pages; unknown addresses get 404.html.
+// See DEPLOY.md.
+{
+  "name": "cadlets",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page"
+  }
+}

@@ -1,7 +1,7 @@
 """Serve the Cadlets webapp locally:  python3 serve.py [port] [--no-browser] [--root DIR]
 
 A plain static server with the WebAssembly MIME type Pyodide needs. It applies the site's
-``_headers`` file the way Cloudflare Pages does (security headers, cache rules), so a local run
+``_headers`` file the way Cloudflare does (security headers, cache rules), so a local run
 matches the deployed site; anything that file does not cache is sent with ``no-cache``, so edits
 show up on reload. ``--root dist`` serves the folder ``tools/build_site.py`` builds for deployment.
 Nothing else is required: the brain (Pyodide, NumPy and the Cadence library) is vendored and runs
@@ -67,7 +67,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         page = Path(self.directory) / "404.html"
         if code != 404 or not page.exists():
             return super().send_error(code, message, explain)
-        body = page.read_bytes()  # the site's own 404 page, as Cloudflare Pages serves it
+        body = page.read_bytes()  # the site's own 404 page, as Cloudflare serves it
         self.send_response(404)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))

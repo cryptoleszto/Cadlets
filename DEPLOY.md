@@ -1,50 +1,58 @@
-# Deploying Cadlets on Cloudflare Pages
+# Deploying Cadlets on Cloudflare
 
 Cadlets is a static site: the brain runs in each visitor's browser, so there is no server to run
-or scale. Cloudflare Pages serves the files from its network. The free plan is enough: unlimited
-requests and bandwidth for static files, 500 builds a month, files up to 25 MiB (the largest here
-is 9.6 MiB) and up to 20,000 files (here 44).
+or scale. Cloudflare serves the files from its network as a Worker with static assets (no Worker
+code; `wrangler.jsonc`). The free plan is enough: requests for static files are free and
+unlimited, files can be up to 25 MiB (the largest here is 9.6 MiB) and there can be up to 20,000
+of them (here 45). `_headers`, `_redirects` and `404.html` work as they do on Cloudflare Pages.
 
 ## What gets deployed
 
 `python3 tools/build_site.py` copies what the browser loads into `dist/` (about 17 MiB) and checks
 it: no file over 25 MiB, not too many files, and every page, stylesheet and script refers only to
-files that are in the build. Cloudflare runs the same command on every push. To try exactly what
-will go live:
+files that are in the build. Cloudflare runs the same command on every push, then
+`npx wrangler deploy` publishes `dist/` (as `wrangler.jsonc` says). To try exactly what will go
+live:
 
 ```bash
 python3 tools/build_site.py && python3 serve.py 8643 --root dist
 ```
 
 `serve.py` applies `_headers` the way Cloudflare does and answers unknown addresses with
-`404.html`, so a local run behaves like the live site.
+`404.html`, so a local run behaves like the live site (it does not apply `_redirects`).
 
 ## One-time setup
 
 All of this happens in your Cloudflare and GitHub accounts; nothing needs to be installed.
 
 1. Sign in at <https://dash.cloudflare.com> (a free account is enough).
-2. **Workers & Pages → Create → Pages → Connect to Git.** If the dashboard offers a Worker
-   first, pick the Pages option.
-3. Choose **GitHub**. When GitHub asks, install the Cloudflare Pages app for the `cryptoleszto`
-   account with **Only select repositories → Cadlets**. A private repo works.
-4. Select `Cadlets` → **Begin setup**:
+2. **Workers & Pages → Create → Import a repository** (connect GitHub). When GitHub asks, install
+   Cloudflare's app for the `cryptoleszto` account with **Only select repositories → Cadlets**.
+   A private repo works.
+3. Pick `cryptoleszto/Cadlets`. On **Set up your application**:
 
    | Setting | Value |
    |---|---|
-   | Project name | `cadlets` (this becomes `cadlets.pages.dev`; if it is taken, the name you pick is the address) |
-   | Production branch | `main` |
-   | Framework preset | None |
+   | Project name | `cadlets` (must match `"name"` in `wrangler.jsonc`) |
    | Build command | `python3 tools/build_site.py` |
-   | Build output directory | `dist` |
-   | Root directory | leave empty |
+   | Deploy command | `npx wrangler deploy` (the default) |
+   | Non-production branch deploy command | leave the default |
+   | Enable Preview builds | optional: other branches get their own preview address |
+   | **Protect with Cloudflare Access** | **on** (see "Until the source and licence are decided") |
+   | Advanced settings → root directory | `/` (the default) |
+   | API token | let it create a new one |
+   | Variables | none |
 
-5. **Save and Deploy.** The first build takes about a minute; its log ends with
+4. **Deploy.** The first build takes a minute or two. Its log shows
    `note: _redirects is included (the hard maintenance block is ON)` and
-   `dist/: 45 files, 16.8 MiB`.
-6. Open `https://cadlets.pages.dev`. Before launch the site ships **closed** (see "Opening the
-   site" below): the badge says MAINTENANCE, the landing page says "The Cadence is getting
-   ready. Opening soon.", and `/play` sends you back to the landing page.
+   `dist/: 45 files, 16.8 MiB`, then wrangler uploading the assets.
+5. The address is `https://cadlets.<your-account>.workers.dev` (the Worker's page shows it).
+   Before launch the site ships **closed** (see "Opening the site" below): the badge says
+   MAINTENANCE, the landing page says "The Cadence is getting ready. Opening soon.", and `/play`
+   sends you back to the landing page.
+
+If the build fails, the log says why; the usual suspects are a project name that differs from
+`wrangler.jsonc`, or a build image without `python3`.
 
 ## Opening the site
 
@@ -60,25 +68,26 @@ To close again, do the reverse (see "Everyday use").
 
 ## Until the source and licence are decided
 
-The `pages.dev` address is reachable by anyone as soon as it deploys. The site ships the Cadence
-library, which is GPL-3.0, and offering it to the public is what brings the obligation to offer
-the source. So until that is decided, keep the site to yourself with Cloudflare Access (free for
-up to 50 people):
+The `workers.dev` address is reachable by anyone as soon as it deploys, unless Cloudflare Access
+guards it. The site ships the Cadence library, which is GPL-3.0, and offering it to the public is
+what brings the obligation to offer the source. So until that is decided, keep the site to
+yourself with Cloudflare Access (free for up to 50 people):
 
-- **Zero Trust → Access → Applications → Add an application → Self-hosted**, domain
-  `cadlets.pages.dev` (and `*.cadlets.pages.dev` for preview builds), with a policy that allows
-  only your email address. Visitors then get a one-time code by email before the site opens.
-- Remove the application when the site goes public.
+- Tick **Protect with Cloudflare Access** during setup, or later: the Worker's **Settings →
+  Domains & Routes**, and enable Cloudflare Access for `workers.dev` and for Preview URLs.
+- Allow only your email address. Check it in a private browser window: you should get a
+  Cloudflare login asking for a one-time code by email before anything of the site shows.
+- Turn it off when the site goes public.
 
 Before going public, also check: the footer's "Source code" link points to the GitHub repo, which
 shows a 404 to visitors while the repo is private.
 
 ## Everyday use
 
-- **Deploy:** push to `main`; it is live about a minute later. Every other branch gets its own
-  preview address (`<branch>.cadlets.pages.dev`), handy for trying a change first.
-- **Roll back:** the project's **Deployments** list → an earlier deployment → **Rollback to this
-  deployment**. It takes seconds and needs no push.
+- **Deploy:** push to `main`; it is live a minute or two later. With preview builds on, every
+  other branch gets its own preview address, handy for trying a change first.
+- **Roll back:** the Worker's **Deployments** list → an earlier version → **Rollback**. It takes
+  seconds and needs no push.
 - **Soft maintenance:** set `"status": "maintenance"` in `site.json`, optionally a `"message"` and a
   `"back"` time, and push. The landing page shows UNDER MAINTENANCE instead of PLAY; the game sends
   new arrivals back to it, and players already in a game are saved and sent there within five
@@ -103,8 +112,9 @@ shows a 404 to visitors while the repo is private.
 
 ## Optional, later
 
-- **A custom domain:** the project's **Custom domains → Set up a domain**. No redeploy needed.
-- **Visitor counts:** the project's **Metrics → Web Analytics** is cookieless (no consent banner).
+- **A custom domain:** the Worker's **Settings → Domains & Routes → Add → Custom domain** (the
+  domain must be on Cloudflare). No redeploy needed.
+- **Visitor counts:** Cloudflare Web Analytics is cookieless (no consent banner).
   It adds a script from `static.cloudflareinsights.com`, so the Content-Security-Policy in
   `_headers` must then allow it: add `https://static.cloudflareinsights.com` to `script-src` and
   `https://cloudflareinsights.com` to `connect-src`.

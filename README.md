@@ -13,7 +13,8 @@ That opens <http://localhost:8642>: the landing page, with the game at `play.htm
 runs in a Web Worker in your browser, offline. The fonts are served from the site too, so nothing
 loads from anywhere else. `serve.py` applies the site's `_headers` like the live site does.
 
-**Deploying:** Cloudflare Pages, built with `python3 tools/build_site.py`; see [DEPLOY.md](DEPLOY.md).
+**Deploying:** Cloudflare (a Worker serving static assets, `wrangler.jsonc`), built with
+`python3 tools/build_site.py`; see [DEPLOY.md](DEPLOY.md).
 
 ## Playing
 
@@ -215,10 +216,10 @@ A broken frame no longer stops the picture: the render loop logs the error and d
   your message and return time.
 - **Game:** checks at start (closed: back to the landing page) and every 5 minutes while playing
   (closed: the Cadence is saved, the player is told, and sent to the landing page).
-- Set `"status": "open"` to reopen. On Cloudflare Pages a push redeploys in about a minute, and
+- Set `"status": "open"` to reopen. On Cloudflare a push redeploys in about a minute, and
   `_headers` keeps `site.json` from being cached (DEPLOY.md has the routine).
 - The check runs in the browser, so someone determined could still open the game. For a hard block on
-  Cloudflare Pages, also rename `_redirects.maintenance` to `_redirects` (and back afterwards).
+  Cloudflare, also rename `_redirects.maintenance` to `_redirects` (and back afterwards).
 - If `site.json` cannot be read, the site counts as open.
 - `"coming"` lists the end screen's teasers (`icon` is a sprite name, `title`, `text`); edit them
   to announce what is next without touching the code.

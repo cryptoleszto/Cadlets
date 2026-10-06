@@ -1,4 +1,4 @@
-# Response headers on Cloudflare Pages. serve.py applies this file too, so a local run matches.
+# Response headers on Cloudflare (Workers static assets or Pages). serve.py applies this file too, so a local run matches.
 # A block is a URL pattern (* matches anything) followed by indented "Name: value" lines; when
 # several blocks match a request, their headers are combined.
 

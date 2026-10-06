@@ -1,7 +1,7 @@
 """Build the deployable site into dist/ and check it:  python3 tools/build_site.py
 
-Cloudflare Pages runs this (build command ``python3 tools/build_site.py``, output directory
-``dist``); it needs nothing beyond the Python standard library. Only what the browser loads is
+Cloudflare runs this on every push (build command ``python3 tools/build_site.py``; wrangler.jsonc
+publishes ``dist``); it needs nothing beyond the Python standard library. Only what the browser loads is
 copied: the pages, css/, js/, assets/, py/cadlets.py, vendor/ (with the Cadence licence and the
 wasm32 patch), site.json and _headers, plus _redirects when that file exists (the hard maintenance
 block, see DEPLOY.md). The tools, README and local server stay out.
@@ -23,8 +23,8 @@ SITE = ["index.html", "play.html", "404.html", "favicon.ico", "site.json", "_hea
         "css", "js", "assets", "py/cadlets.py", "vendor"]
 OPTIONAL = ["_redirects"]  # present only while the hard maintenance block is on
 SKIP = {".DS_Store", "__pycache__"}
-MAX_FILE = 25 * 1024 * 1024  # Cloudflare Pages: largest file
-MAX_FILES = 20_000  # Cloudflare Pages (free plan): files per deployment
+MAX_FILE = 25 * 1024 * 1024  # Cloudflare static assets: largest file
+MAX_FILES = 20_000  # Cloudflare static assets (free plan): files per deployment
 
 # Local references, and what each resolves against as the browser does it: pages and stylesheets
 # against their own folder, a module's imports against the module, its fetch() and new Worker()
