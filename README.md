@@ -228,7 +228,7 @@ A broken frame no longer stops the picture: the render loop logs the error and d
 ```
 index.html, css/landing.css    the landing page (js/landing.js); site.json, js/site.js: the switch
 404.html                       the page for addresses that do not exist
-_headers, _redirects.*         response headers and the hard maintenance block (Cloudflare Pages)
+_headers, _redirects           response headers; the hard maintenance block (off when named _redirects.maintenance)
 css/fonts.css, assets/fonts/   the self-hosted pixel fonts (SIL Open Font License)
 play.html, css/, js/           the game: rendering, HUD, input, audio, mind panel
 js/worker.js                   Pyodide host; JSON in, JSON out

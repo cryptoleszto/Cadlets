@@ -40,9 +40,23 @@ All of this happens in your Cloudflare and GitHub accounts; nothing needs to be 
    | Root directory | leave empty |
 
 5. **Save and Deploy.** The first build takes about a minute; its log ends with
-   `dist/: 44 files, 16.8 MiB`.
-6. Open `https://cadlets.pages.dev`: the badge should say OPEN, and PLAY should boot the game
-   (the first visit downloads about 8 MB; later visits load from the browser's cache).
+   `note: _redirects is included (the hard maintenance block is ON)` and
+   `dist/: 45 files, 16.8 MiB`.
+6. Open `https://cadlets.pages.dev`. Before launch the site ships **closed** (see "Opening the
+   site" below): the badge says MAINTENANCE, the landing page says "The Cadence is getting
+   ready. Opening soon.", and `/play` sends you back to the landing page.
+
+## Opening the site
+
+Until launch both maintenance switches are on. To open (once the source and licence are
+decided, or just to try the live game yourself behind Cloudflare Access):
+
+1. In `site.json`, set `"status": "open"`.
+2. `git mv _redirects _redirects.maintenance`
+3. Commit and push. About a minute later the badge says OPEN and PLAY boots the game (the first
+   visit downloads about 8 MB; later visits load from the browser's cache).
+
+To close again, do the reverse (see "Everyday use").
 
 ## Until the source and licence are decided
 
