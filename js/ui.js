@@ -122,6 +122,21 @@ export function glitchFlash(ms = 700) {
 
 let lastPop = -1;
 
+// A death or a birth shows on the ring as a floating -1 / +1, even when a Cadlet splits
+// into the freed place a beat later and the number itself barely moves.
+export function popChange(died, born) {
+  const ring = $("#pop");
+  for (const [n, cls] of [[died, "down"], [born, "up"]]) {
+    if (!n) continue;
+    const el = document.createElement("span");
+    el.className = `pop-delta ${cls}`;
+    el.textContent = `${cls === "down" ? "−" : "+"}${n}`;
+    ring.appendChild(el);
+    setTimeout(() => el.remove(), 1600);
+  }
+  if (died) { ring.classList.remove("hurt"); void ring.offsetWidth; ring.classList.add("hurt"); }
+}
+
 export function hud(snap) {
   const n = snap.cadlets.length;
   if (n !== lastPop) { $("#pop-n").textContent = n; lastPop = n; }

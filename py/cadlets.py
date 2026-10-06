@@ -86,9 +86,8 @@ TUNE = {
     "rest_joy": 5.0,        # how good sleeping it off feels (scales the usual satisfaction)
     "tired_split": 0.8,     # tired Cadlets can still split in two; exhausted ones cannot
     "sleep_metabolism": 0.5,  # how fast hunger, dirt and boredom grow while asleep (1 = as awake)
-    "restless": 0.0,        # how much a pressing need spoils sleep (0 = not at all, 1 = fully)
-    "glitch_beat": 600,
-    "glitch_heal": 240,     # beats until the corrupted trees heal again (None = they never do)   # the code rewrites itself once the Cadence has reached stage 2 and this beat
+    "glitch_beat": 600,     # the code rewrites itself once the Cadence has reached stage 2 and this beat
+    "glitch_heal": 240,     # beats until the corrupted trees heal again (None = they never do)
     "metabolism": [1.0, 1.1, 1.2, 1.3],  # need growth multiplier per evolution stage
     "regrow": 2,          # beats per new fruit on a tree
     "content_need": 0.46,  # mitosis needs every need below this...
@@ -627,14 +626,12 @@ class World:
         elif a == SLEEP:
             t.state = "sleep"
             night = self.is_night()
-            # a pressing need makes for restless sleep: it heals and rests you less
-            calm = 1.0 - TUNE["restless"] * max(pang(t.hunger), pang(t.dirt), pang(t.boredom))
             before = t.hp
-            t.hp = _clip01(t.hp + (0.09 if night else 0.06) * calm)
+            t.hp = _clip01(t.hp + (0.09 if night else 0.06))
             t.reward += (t.hp - before) * 1.5
             # sleep clears tiredness: a night's sleep fully, a daytime nap only a little
             tired = t.fatigue
-            relief = min(tired, (TUNE["rest_night"] if night else TUNE["rest_day"]) * calm)
+            relief = min(tired, TUNE["rest_night"] if night else TUNE["rest_day"])
             t.fatigue -= relief
             t.reward += max(0.0, satisfaction(tired, relief)) * TUNE["rest_joy"]
         elif a == HAND:

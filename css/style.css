@@ -114,6 +114,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 #pop-icon { width: 24px; height: 25px; image-rendering: pixelated; }
 #pop-n { font-family: "VT323", monospace; font-size: 24px; line-height: .8; color: var(--cream); }
+/* every death and birth shows on the ring, even when the number barely moves */
+.pop-delta {
+  position: absolute; right: -16px; top: 6px; font-family: "VT323", monospace; font-size: 24px;
+  text-shadow: 2px 2px 0 rgba(0,0,0,.6); pointer-events: none; animation: pop-float 1.6s steps(8) forwards;
+}
+.pop-delta.down { color: #ff6a5c; }
+.pop-delta.up { color: #8cf59a; top: 40px; }
+@keyframes pop-float { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-22px); opacity: 0; } }
+.ring.hurt .ring-core { animation: ring-hurt .7s steps(2) 2; }
+@keyframes ring-hurt { 50% { background: #6e1a14; border-color: #c4553f; } }
 /* alive, then the target the ring fills toward: 8/16 */
 .pop-count { display: flex; align-items: baseline; justify-content: center; }
 #pop-of { font-family: "VT323", monospace; font-size: 15px; line-height: .8; color: var(--tan-2); }

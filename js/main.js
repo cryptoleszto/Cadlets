@@ -200,6 +200,9 @@ function onSnap(snap, ms, still) {
 }
 
 function events(snap) {
+  const died = snap.events.filter((e) => e.type === "death").length;
+  const born = snap.events.filter((e) => e.type === "split" || e.type === "hatch").length;
+  if (died || born) ui.popChange(died, born);
   let screams = 0;
   for (const t of snap.cadlets) {
     if (t.v && Math.random() < 0.35) audio.chirp(t.v, t.id, pan(t.x));
