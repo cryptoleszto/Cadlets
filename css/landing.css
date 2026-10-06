@@ -119,6 +119,60 @@ a:focus-visible, .plank-btn:focus-visible { outline: 3px solid var(--amber); out
 .closed .back:empty { display: none; }
 .closed small { display: block; margin-top: 12px; font-size: 15px; opacity: .8; }
 
+/* offerings: the tip jar and $CADENCE, at the foot of the hero */
+.offerings { position: relative; z-index: 1; padding-bottom: 38px; }
+.offer-head {
+  display: flex; align-items: center; justify-content: center; gap: 12px; margin: 0 0 16px;
+  font-family: "VT323", monospace; font-size: 21px; letter-spacing: 4px; color: var(--mist);
+}
+.offer-head canvas { width: 18px; height: 18px; }
+.offer-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; max-width: 1080px; margin: 0 auto; }
+.offer {
+  display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; padding: 16px 18px;
+  background: rgba(5, 15, 51, .58); border: 3px solid rgba(159, 184, 255, .35);
+  box-shadow: inset 0 0 0 2px rgba(5, 15, 51, .7), 0 6px 0 rgba(0, 0, 0, .32);
+}
+/* a little scene drawn from the game's sprites, k screen pixels per sprite pixel */
+.offer-art {
+  --k: 3; position: relative; width: calc(31px * var(--k)); height: calc(30px * var(--k));
+  background: radial-gradient(ellipse 46% 26% at 46% 86%, #2d4419 0 96%, transparent 100%);
+}
+.offer-art .who {
+  position: absolute; left: calc(3px * var(--k)); bottom: calc(2px * var(--k));
+  width: calc(20px * var(--k)); height: calc(21px * var(--k)); animation: bob 1.3s steps(2) infinite;
+}
+.offer-art .gift { position: absolute; right: 0; bottom: calc(3px * var(--k)); width: calc(9px * var(--k)); height: calc(9px * var(--k)); }
+.offer-art .float {
+  position: absolute; right: calc(1px * var(--k)); top: 0; width: calc(7px * var(--k)); height: calc(7px * var(--k));
+  animation: rise 2.6s steps(8) infinite;
+}
+.offer-art .chirp {
+  position: absolute; left: calc(15px * var(--k)); top: 0; padding: 3px 4px; line-height: 0;
+  background: #c6dbdb; border: 3px solid #26323a;
+}
+.offer-art .chirp canvas { width: calc(6px * var(--k)); height: calc(6px * var(--k)); }
+.offer-art .chirp ~ .float { right: auto; left: 0; top: calc(4px * var(--k)); }
+.offer h3 { margin: 0; font-family: "Silkscreen", monospace; font-weight: normal; font-size: 18px; letter-spacing: 1px; color: var(--amber); }
+.offer p { margin: 2px 0 10px; font-size: 16px; line-height: 1.4; color: #e4ebff; }
+.offer .label { display: block; font-family: "VT323", monospace; font-size: 16px; letter-spacing: 2px; color: var(--mist); }
+.addr-row { display: flex; gap: 10px; align-items: stretch; margin-top: 3px; }
+.addr {
+  flex: 1; min-width: 0; padding: 6px 9px 4px; font-family: "VT323", monospace; font-size: 19px; line-height: 1.15;
+  letter-spacing: .5px; color: var(--phosphor); background: var(--term-bg); border: 2px solid #1d3a26;
+  overflow-wrap: anywhere; user-select: all;
+}
+.copy-btn {
+  flex: none; width: 112px; padding: 6px 8px 4px; cursor: pointer;
+  font-family: "Pixelify Sans", monospace; font-size: 16px; letter-spacing: 1px; color: var(--brown);
+  background: linear-gradient(#cfa877, #b08559); border: 3px solid #5c3d22;
+  box-shadow: inset 0 0 0 2px #e2c397, 0 4px 0 rgba(0, 0, 0, .45);
+}
+.copy-btn:hover { background: linear-gradient(#dcb889, #be9467); }
+.copy-btn:active { transform: translateY(3px); box-shadow: inset 0 0 0 2px #e2c397, 0 1px 0 rgba(0, 0, 0, .45); }
+.copy-btn:focus-visible { outline: 3px solid var(--amber); outline-offset: 3px; }
+.copy-btn.done { background: linear-gradient(#b7e8a4, #78b866); box-shadow: inset 0 0 0 2px #d6f5c8, 0 4px 0 rgba(0, 0, 0, .45); }
+.offer-note { max-width: 1080px; margin: 14px auto 0; text-align: center; font-family: "VT323", monospace; font-size: 17px; letter-spacing: 1px; color: rgba(159, 184, 255, .78); }
+
 /* ---------------------------------------------------------------- the clearing */
 .diorama { background: #24331a; border-top: 4px solid var(--tan-2); border-bottom: 4px solid var(--tan-2); }
 .diorama .frame { overflow: hidden; display: flex; justify-content: center; box-shadow: inset 0 0 0 3px #2b1f17; }
@@ -255,6 +309,7 @@ footer { background: #030a24; border-top: 3px solid #13245e; }
 @keyframes blink { 50% { opacity: .3; } }
 @keyframes bob { 50% { transform: translateY(-6px); } }
 @keyframes wobble { 25% { transform: rotate(-6deg); } 75% { transform: rotate(6deg); } }
+@keyframes rise { 0% { transform: translateY(8px); opacity: 0; } 30% { opacity: 1; } 100% { transform: translateY(-6px); opacity: 0; } }
 
 @media (max-width: 860px) {
   .intro { grid-template-columns: 1fr; gap: 10px; }
@@ -270,12 +325,20 @@ footer { background: #030a24; border-top: 3px solid #13245e; }
   }
   .faq dl { grid-template-columns: 1fr; gap: 0; }
   .faq dl > div:nth-last-child(2) { border-bottom: 2px dashed rgba(159, 184, 255, .22); }
+  .offer-list, .offer-note { grid-template-columns: 1fr; max-width: 560px; }
 }
 @media (max-width: 520px) {
   :root { --gutter: 16px; }
   body { font-size: 17px; }
   .bar { font-size: 17px; letter-spacing: 2px; }
   .plank-btn.big { min-width: 200px; font-size: 28px; }
+  /* the address row takes the card's full width, under the scene and the words */
+  .offer { gap: 4px 12px; padding: 14px; align-items: start; }
+  .offer-body { display: contents; }
+  .offer-art { --k: 2; grid-row: span 3; align-self: center; }
+  .offer .addr-row { grid-column: 1 / -1; margin-top: 6px; }
+  .addr { font-size: 17px; }
+  .copy-btn { width: 96px; font-size: 15px; }
 
   main > section.wrap { padding-top: 68px; }
   main section.final { margin-top: 64px; padding-top: 56px; padding-bottom: 80px; }

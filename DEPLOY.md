@@ -47,7 +47,7 @@ All of this happens in your Cloudflare and GitHub accounts; nothing needs to be 
    `note: _redirects is included (the hard maintenance block is ON)` and
    `dist/: 45 files, 16.8 MiB`, then wrangler uploading the assets.
 5. The address is `https://cadlets.<your-account>.workers.dev` (the Worker's page shows it).
-   Before launch the site ships **closed** (see "Opening the site" below): the badge says
+   While both maintenance switches are on (see "Opening the site" below), the badge says
    MAINTENANCE, the landing page says "The Cadence is getting ready. Opening soon.", and `/play`
    sends you back to the landing page.
 

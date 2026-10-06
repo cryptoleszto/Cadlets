@@ -48,6 +48,31 @@ async function gate() {
 $("#status").classList.add("checking");
 gate();
 
+// ------------------------------------------------------------------ offerings
+
+// COPY puts an address on the clipboard; where the browser refuses, it selects the address
+// instead, ready for the visitor to copy.
+for (const button of document.querySelectorAll("[data-copy]")) {
+  button.addEventListener("click", async () => {
+    const code = document.getElementById(button.dataset.copy);
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(code.textContent.trim());
+      copied = true;
+    } catch {
+      const range = document.createRange();
+      range.selectNodeContents(code);
+      getSelection().removeAllRanges();
+      getSelection().addRange(range);
+    }
+    button.textContent = copied ? "COPIED!" : "SELECTED";
+    button.classList.toggle("done", copied);
+    $("#copy-status").textContent = copied ? "Address copied." : "Address selected; copy it with your keyboard.";
+    clearTimeout(button.reset);
+    button.reset = setTimeout(() => { button.textContent = "COPY"; button.classList.remove("done"); }, 1800);
+  });
+}
+
 // ------------------------------------------------------------------ pixel icons
 
 function paintIcons() {
