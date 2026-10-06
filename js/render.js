@@ -45,6 +45,8 @@ export class Renderer {
     this.ghosts = [];           // eaten apples, drawn until their eater arrives
     this.pendingFruit = new Map(); // tree id -> {n, until}: fruit still hanging until picked
     this.squeeze = null;        // {id, t0}: the hand closing on a Cadlet
+    this.panic = new Map();     // id -> {x0,y0,x1,y1,t0,dur}: TERROR, bolting for the forest
+    this.quake = null;          // {until, ms, amp}: the screen shaking
     this.selected = null;
     this.lexicon = {};
     this.glitchUntil = 0;
@@ -132,6 +134,8 @@ export class Renderer {
     // each new walk must begin from the current position, not from the last walk's start.
     const current = new Map();
     for (const b of this.bodies.values()) current.set(b.id, this._bodyPos(b, now));
+    // a finished panic run hands over to the world, which now has them at the forest edge
+    for (const [id, run] of this.panic) if (now >= run.t0 + run.dur) this.panic.delete(id);
     this.beatMs = beatMs;
     const first = !this.snap;
     this.prevSnap = this.snap;
@@ -173,7 +177,7 @@ export class Renderer {
       this._bubbleFor(t, now, snap);
       this._eventsFor(t, b, b.arrive);
     }
-    for (const id of [...this.bodies.keys()]) if (!seen.has(id)) this.bodies.delete(id);
+    for (const id of [...this.bodies.keys()]) if (!seen.has(id)) { this.bodies.delete(id); this.panic.delete(id); }
     const kicks = new Map(), arrival = (id) => this.bodies.get(id)?.arrive ?? now;
     for (const e of snap.events) {
       if (e.type === "kick") kicks.set(e.ball, arrival(e.id));
@@ -206,6 +210,13 @@ export class Renderer {
   _bodyPos(b, now) {
     if (this.squeeze && this.squeeze.id === b.id && this.squeeze.x !== undefined) {
       return { x: this.squeeze.x, y: this.squeeze.y, k: 1 };
+    }
+    const run = this.panic.get(b.id);
+    if (run) {
+      // frozen in shock until its moment, then a bolt that slows among the trees
+      const k = Math.min(1, Math.max(0, (now - run.t0) / run.dur));
+      const e = 1 - (1 - k) * (1 - k);
+      return { x: lerp(run.x0, run.x1, e), y: lerp(run.y0, run.y1, e), k: e, panic: now >= run.t0 && k < 1 };
     }
     const fly = this.flying.get(b.id);
     if (fly && now < fly.t0 + fly.dur) {
@@ -260,6 +271,8 @@ export class Renderer {
       else if (e === "hurt") for (let i = 0; i < 6; i++) this._particle("blood", t.x, t.y - 0.4, (Math.random() - 0.5) * 2.5, -Math.random() * 2, 700);
       else if (e === "fright") { this.bubbles.set(t.id, { icons: ["i_bang"], until: performance.now() + this.beatMs * 1.2, kind: "surprise", born: performance.now() }); this._particle("sweat", t.x - 0.3, t.y - 1.3, -0.3, -0.4, 600); }
       else if (e === "soap") for (let i = 0; i < 6; i++) this._particle("soap", t.x + (Math.random() - 0.5), t.y - Math.random() * 1.2, (Math.random() - 0.5) * 0.4, -0.6, 1200);
+      else if (e === "scream") { this.bubbles.set(t.id, { icons: ["i_bang"], until: now + this.beatMs * 0.9, kind: "surprise", born: now }); for (let i = 0; i < 3; i++) this._particle("sweat", t.x - 0.3, t.y - 1.3, (Math.random() - 0.5) * 1.2, -0.6, 600); }
+      else if (e === "terror") this.bubbles.set(t.id, { icons: ["i_bang"], until: now + this.beatMs * 2, kind: "surprise", born: now });
       else if (e === "confused") this.bubbles.set(t.id, { icons: ["i_what"], until: now + this.beatMs * 1.4, kind: "surprise", born: now });
       else if (e === "split") { this.flashes.push({ x: t.x, y: t.y, t0: now }); for (let i = 0; i < 10; i++) this._particle("spark", t.x, t.y - 0.6, (Math.random() - 0.5) * 3, -Math.random() * 3, 700); }
     }
@@ -387,14 +400,22 @@ export class Renderer {
     ctx.imageSmoothingEnabled = false;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     const s = this.scale * this.dpr;
-    ctx.drawImage(this.buf, 0, 0, vw, vh, 0, 0, Math.round(vw * s), Math.round(vh * s));
+    let ox = 0, oy = 0;
+    if (this.quake && now < this.quake.until) {
+      const a = this.quake.amp * s * (this.quake.until - now) / this.quake.ms;
+      ox = Math.round((Math.random() - 0.5) * 2 * a);
+      oy = Math.round((Math.random() - 0.5) * 2 * a);
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+    ctx.drawImage(this.buf, 0, 0, vw, vh, ox, oy, Math.round(vw * s), Math.round(vh * s));
     if (now < this.glitchUntil || this.forcedGlitch) this._glitchScreen(ctx, now);
   }
 
   _shadow(g, x, y, w, h = 3) {
     g.fillStyle = "rgba(14, 18, 4, .5)";
     g.beginPath();
-    g.ellipse(Math.round(x) + 1, Math.round(y) + 1, w, h, 0, 0, Math.PI * 2);
+    g.ellipse(Math.round(x) + 1, Math.round(y) + 1, Math.max(0.5, w), Math.max(0.5, h), 0, 0, Math.PI * 2);
     g.fill();
   }
 
@@ -512,20 +533,27 @@ export class Renderer {
 
   _body(g, b, p, now) {
     const t = b.data;
-    const moving = p.k !== undefined && p.k < 1 && b.dist > 0.05;
-    const up = moving && (b.y - b.fy) < -0.25 && Math.abs(b.y - b.fy) > Math.abs(b.x - b.fx) * 0.8;
-    let name = this._face(t, b, now, moving);
+    const run = this.panic.get(b.id);
+    const moving = run ? !!p.panic : p.k !== undefined && p.k < 1 && b.dist > 0.05;
+    const dx = run ? run.x1 - run.x0 : b.x - b.fx, dy = run ? run.y1 - run.y0 : b.y - b.fy;
+    const dist = run ? Math.hypot(dx, dy) : b.dist;
+    const up = moving && dy < -0.25 && Math.abs(dy) > Math.abs(dx) * 0.8;
+    let name = run ? "thr_shock" : this._face(t, b, now, moving);
     if (up) name = "thr_back";
     if (moving) {
-      const step = Math.floor((p.k * b.dist) * 3) % 2;
+      const step = Math.floor((p.k * dist) * 3) % 2;
       if (step) name = up ? "thr_back_step" : (name === "thr" ? "thr_step" : name);
     }
-    let flip = "";
+    // a terrified bolt faces where it runs
+    let flip = run && !up && dx < 0 ? "flip" : "";
     if (!up && name === "thr") name = t.f < 0 ? "thr_l" : "thr";
     const variant = t.s === "sick" && Math.random() < 0.08 ? "glitch" : flip;
     const img = sprite(name, variant);
     let hop = 0;
-    if (moving) hop = Math.abs(Math.sin(p.k * Math.PI * Math.max(1, Math.round(b.dist * 1.3)))) * (t.s === "flee" ? 3 : 2);
+    if (run && p.panic) {
+      hop = Math.abs(Math.sin(p.k * Math.PI * Math.max(2, Math.round(dist * 1.6)))) * 3;
+      if (Math.random() < 0.15) this._particle("sweat", p.x - 0.3 * Math.sign(dx || 1), p.y - 1.3, -0.6 * Math.sign(dx || 1), -0.5, 500);
+    } else if (moving) hop = Math.abs(Math.sin(p.k * Math.PI * Math.max(1, Math.round(b.dist * 1.3)))) * (t.s === "flee" ? 3 : 2);
     else if (t.s !== "sleep") hop = Math.max(0, Math.sin(now / 420 + b.hop)) * 0.6;
     if (p.flying) hop = 0;
     // newborns pop in
@@ -542,7 +570,7 @@ export class Renderer {
     if (this.squeeze && this.squeeze.id === b.id) {
       squeezed = Math.min(1, (now - this.squeeze.t0) / this.squeeze.ms);
       shake = Math.round((Math.random() - 0.5) * (1 + 3 * squeezed));
-    } else if (t.fe > 0.45 && !moving) shake = Math.random() < 0.3 ? (Math.random() < 0.5 ? -1 : 1) : 0;
+    } else if ((t.fe > 0.45 || run) && !moving) shake = Math.random() < 0.3 ? (Math.random() < 0.5 ? -1 : 1) : 0;
     g.save();
     g.translate(Math.round(x) + shake, Math.round(y - hop));
     if (squeezed) g.scale(1 + 0.15 * squeezed, 1 - 0.3 * squeezed);
@@ -611,6 +639,8 @@ export class Renderer {
   _flashes(g, now) {
     this.flashes = this.flashes.filter((f) => now - f.t0 < 350);
     for (const f of this.flashes) {
+      // A split's flash waits for the parent to arrive; drawn early, its radius would be negative.
+      if (now < f.t0) continue;
       const k = (now - f.t0) / 350;
       g.fillStyle = `rgba(255, 255, 240, ${0.8 * (1 - k)})`;
       g.beginPath(); g.arc(Math.round(f.x * TILE), Math.round(f.y * TILE - 9), 6 + 10 * k, 0, Math.PI * 2); g.fill();

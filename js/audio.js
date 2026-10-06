@@ -99,4 +99,51 @@ export const sfx = {
   lesson() { [523, 659, 784, 1046].forEach((f, i) => tone({ f, t: 0.16, type: "triangle", vol: 0.12, at: i * 0.09 })); },
   evolve() { [262, 330, 392, 523, 659, 784].forEach((f, i) => tone({ f, t: 0.22, type: "square", vol: 0.07, at: i * 0.11 })); },
   glitch() { for (let i = 0; i < 6; i++) { noise({ t: 0.05, vol: 0.18, hp: 200 + Math.random() * 3000, at: i * 0.07 }); tone({ f: 80 + Math.random() * 900, t: 0.05, type: "square", vol: 0.06, at: i * 0.07 }); } },
+  // TERROR: a low, sour slam under the screams
+  terror() {
+    noise({ t: 0.5, vol: 0.3, hp: 60, lp: 900 });
+    for (const f of [55, 58.3, 82.4, 87.3]) tone({ f, f2: f * 0.7, t: 1.8, type: "sawtooth", vol: 0.09 });
+    tone({ f: 1760, f2: 220, t: 0.6, type: "square", vol: 0.03, at: 0.05 });
+  },
 };
+
+// One Cadlet's scream: a wavering, rising cry through a vocal-ish filter. ``k`` sets the
+// voice (each Cadlet its own), ``at`` delays it so a crowd does not scream in unison.
+export function scream(pan = 0, k = 1, at = 0, vol = 1) {
+  if (!ctx || !enabled) return;
+  const t0 = ctx.currentTime + at, dur = 0.55 + Math.random() * 0.4;
+  const base = 640 * k;
+  const o = ctx.createOscillator();
+  o.type = "sawtooth";
+  o.frequency.setValueAtTime(base * 0.75, t0);
+  o.frequency.exponentialRampToValueAtTime(base * 1.55, t0 + 0.12);
+  o.frequency.exponentialRampToValueAtTime(base * 0.85, t0 + dur);
+  const lfo = ctx.createOscillator();
+  const depth = ctx.createGain();
+  lfo.frequency.value = 13 + Math.random() * 7;
+  depth.gain.value = base * 0.07;
+  lfo.connect(depth);
+  depth.connect(o.frequency);
+  const voice = ctx.createBiquadFilter();
+  voice.type = "bandpass";
+  voice.frequency.value = 1500 * k;
+  voice.Q.value = 1.4;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(0.11 * vol, t0 + 0.04);
+  g.gain.setValueAtTime(0.11 * vol, t0 + dur * 0.6);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(voice);
+  voice.connect(g);
+  let node = g;
+  if (ctx.createStereoPanner) {
+    const p = ctx.createStereoPanner();
+    p.pan.value = Math.max(-1, Math.min(1, pan));
+    g.connect(p);
+    node = p;
+  }
+  node.connect(master);
+  o.start(t0); lfo.start(t0);
+  o.stop(t0 + dur + 0.05); lfo.stop(t0 + dur + 0.05);
+  noise({ t: dur * 0.7, vol: 0.035 * vol, hp: 2200, lp: 6500, at }); // breath
+}

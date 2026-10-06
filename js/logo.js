@@ -13,16 +13,22 @@ const GLYPHS = {
   E: ["#######", "#######", "##.....", "##.....", "######.", "######.", "##.....", "#######", "#######"],
   T: ["######", "######", "..##..", "..##..", "..##..", "..##..", "..##..", "..##..", "..##.."],
   S: [".######", "#######", "##.....", "######.", ".######", ".....##", ".....##", "#######", "######."],
+  R: ["######.", "#######", "##...##", "##...##", "######.", "#####..", "##.###.", "##..###", "##...##"],
+  O: [".#####.", "#######", "##...##", "##...##", "##...##", "##...##", "##...##", "#######", ".#####."],
 };
 
-const FILL = ["#fff2b8", "#ffd45c", "#ffad38", "#f4812b", "#da561f"]; // top to bottom
-const BEVEL_LIGHT = "#fff8dc";
-const BEVEL_DARK = "#b23d16";
-const EXTRUDE = ["#8a3412", "#6a260c", "#4c1a08"];
-const OUTLINE = "#240d04";
+// fill runs top to bottom
+export const SUNSET = {
+  fill: ["#fff2b8", "#ffd45c", "#ffad38", "#f4812b", "#da561f"], light: "#fff8dc", shine: "#ffffff",
+  dark: "#b23d16", extrude: ["#8a3412", "#6a260c", "#4c1a08"], outline: "#240d04",
+};
+export const BLOOD = {
+  fill: ["#ff8a78", "#f0303a", "#c4101e", "#940814", "#66030c"], light: "#ffb0a4", shine: "#ffe4de",
+  dark: "#4c0208", extrude: ["#3e0207", "#2a0104", "#160002"], outline: "#050000",
+};
 const BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
 
-function letter(ch, cell) {
+function letter(ch, cell, pal = SUNSET) {
   const rows = GLYPHS[ch];
   const cols = rows[0].length;
   const o = Math.max(1, Math.round(cell / 2));     // outline thickness
@@ -58,27 +64,40 @@ function letter(ch, cell) {
     for (let dy = -o; dy <= o && !near; dy++) for (let dx = -o; dx <= o && !near; dx++) {
       if (Math.abs(dx) + Math.abs(dy) <= o + (o > 1 ? 1 : 0) && solid(x + dx, y + dy)) near = true;
     }
-    if (near) px(x, y, OUTLINE);
+    if (near) px(x, y, pal.outline);
   }
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const k = depth[y * W + x];
-    if (k) px(x, y, EXTRUDE[Math.min(EXTRUDE.length - 1, Math.floor((k - 1) / ext * EXTRUDE.length))]);
+    if (k) px(x, y, pal.extrude[Math.min(pal.extrude.length - 1, Math.floor((k - 1) / ext * pal.extrude.length))]);
   }
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if (!face[y * W + x]) continue;
     const f = (xx, yy) => at(xx, yy) && face[yy * W + xx];
     let col;
-    if (!f(x - 1, y) || !f(x, y - 1)) col = (!f(x - 1, y) && !f(x, y - 1)) ? "#ffffff" : BEVEL_LIGHT;
-    else if (!f(x + 1, y) || !f(x, y + 1)) col = BEVEL_DARK;
+    if (!f(x - 1, y) || !f(x, y - 1)) col = (!f(x - 1, y) && !f(x, y - 1)) ? pal.shine : pal.light;
+    else if (!f(x + 1, y) || !f(x, y + 1)) col = pal.dark;
     else {
       // vertical sunset, ordered-dithered between bands like 16-colour art
-      const t = (y - o) / fh * (FILL.length - 1);
+      const t = (y - o) / fh * (pal.fill.length - 1);
       const band = Math.floor(t), frac = t - band;
-      col = FILL[Math.min(FILL.length - 1, band + (frac * 16 > BAYER[y % 4][x % 4] ? 1 : 0))];
+      col = pal.fill[Math.min(pal.fill.length - 1, band + (frac * 16 > BAYER[y % 4][x % 4] ? 1 : 0))];
     }
     px(x, y, col);
   }
   return { canvas: c, w: W, h: H, face: fw, top: o };
+}
+
+// A whole word on one canvas, letters side by side (no wave, no Cadlet).
+export function wordCanvas(word, cell, pal = SUNSET) {
+  const letters = [...word].map((ch) => letter(ch, cell, pal));
+  const gap = Math.round(cell * 0.5);
+  const c = document.createElement("canvas");
+  c.width = letters.reduce((s, l) => s + l.w, 0) + gap * (letters.length - 1);
+  c.height = Math.max(...letters.map((l) => l.h));
+  const g = c.getContext("2d");
+  let x = 0;
+  for (const l of letters) { g.drawImage(l.canvas, x, 0); x += l.w + gap; }
+  return c;
 }
 
 export class Wordmark {

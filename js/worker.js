@@ -109,7 +109,8 @@ function tick() {
     const snap = api.tick(events);
     post({ type: "snap", snap, ms: performance.now() - t0 });
   } catch (e) {
-    post({ type: "error", text: String(e.message || e) });
+    // A Python error's message is its whole traceback.
+    post({ type: "error", text: String(e.message || e), during: "beat" });
     paused = true;
   }
   busy = false;
@@ -163,6 +164,6 @@ self.onmessage = async (ev) => {
       post({ type: "reset", layout: JSON.parse(layout), snap: api.snap() });
     }
   } catch (e) {
-    post({ type: "error", text: String(e.message || e) });
+    post({ type: "error", text: String(e.message || e), during: m.type });
   }
 };

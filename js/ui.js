@@ -2,6 +2,7 @@
 
 import { sprite } from "./sprites.js";
 import { ICON_FOR, GLYPHS } from "./render.js";
+import * as log from "./log.js";
 
 const $ = (s) => document.querySelector(s);
 export const BEH_COLORS = {
@@ -131,8 +132,14 @@ export function hud(snap) {
   if (eggs && !n) goal = "HATCH THE EGG";
   if (snap.glitch && snap.beat - (snap.glitch_beat || snap.beat) < 0) goal = "SOMETHING IS WRONG";
   if (!n && !eggs) goal = "THE CADENCE IS GONE";
+  // TERROR takes over the banner until it has drained away
+  const terror = snap.terror > 0 && n > 0;
+  if (terror) goal = "THEY ARE TERRIFIED OF YOU";
+  $("#goal-label").textContent = terror ? "TERROR" : "GOAL";
   $("#goal-text").textContent = goal;
+  $("#goal").classList.toggle("terror", terror);
   $("#goal").classList.toggle("alert", !n && !eggs);
+  $("#goal").style.setProperty("--left", terror ? (snap.terror / (snap.terror_beats || 33)).toFixed(3) : "0");
   const day = Math.floor(snap.beat / 240) + 1;
   $("#beat").textContent = `DAY ${day} · BEAT ${snap.beat}${snap.night ? " · NIGHT" : ""}`;
 }
@@ -165,7 +172,7 @@ export function mind(snap, extra) {
   ]);
   // One broken section must not blank the rest of the panel (or the caller).
   for (const part of [chart, probes, memory, one, lexicon, you, lessons]) {
-    try { part(snap); } catch (err) { console.error(`mind panel: ${part.name}`, err); }
+    try { part(snap); } catch (err) { log.error("mind", err, { part: part.name }); }
   }
 }
 
@@ -197,7 +204,7 @@ function you(snap) {
     <div class="kv">
       <span>PETS · FED FROM HAND</span><span>${s.pets || 0} · ${s.hand_fed || 0}</span>
       <span>APPLES · SCRUBS</span><span>${s.player_apples || 0} · ${s.player_soap || 0}</span>
-      <span>THROWN · KILLED</span><span class="${v.harm ? "bad" : ""}">${s.flings || 0} · ${s.crushed || 0}</span>
+      <span>THROWN · KILLED · TERRORS</span><span class="${v.harm ? "bad" : ""}">${s.flings || 0} · ${s.crushed || 0} · ${s.terrors || 0}</span>
       <span>NEAR YOUR HAND THEY</span><span>COME ${pct(v.approach)} · FLEE ${pct(v.flee)}</span>
       <span>IMAGINED: COME · FLEE IF AFRAID</span><span>${pct(v.imaginedCome)} · ${pct(v.imaginedFlee)}</span>
       <span>THE CADENCE THINKS YOU ARE</span><span class="${v.word === "CRUEL" ? "bad" : v.word === "KIND" ? "good" : ""}">${v.word}</span>

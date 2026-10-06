@@ -52,6 +52,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   position: fixed; inset: 0; pointer-events: none; z-index: 40; opacity: 0;
 }
 #glitch.on { opacity: 1; }
+#terror { position: fixed; left: 0; top: 0; z-index: 50; image-rendering: pixelated; image-rendering: crisp-edges; }
 
 #labels { position: fixed; inset: 0; pointer-events: none; z-index: 6; }
 .label-name {
@@ -76,6 +77,20 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #goal .label { background: var(--goal-blue); color: #fff; padding: 4px 12px 2px; }
 #goal #goal-text { padding: 4px 14px 2px; }
 #goal.alert .label { background: #c7324d; animation: blink 1s steps(2) infinite; }
+#goal-left { display: none; }
+/* TERROR: the banner turns to blood, and a bar drains as the terror fades */
+#goal.terror {
+  background: #1a0204; color: #ff6a5c; border-color: #050000;
+  box-shadow: 0 0 0 3px #7a0612, 0 0 18px 4px rgba(200, 10, 20, .55), 0 5px 0 3px rgba(0,0,0,.45);
+  animation: terror-shake .18s steps(2) infinite;
+}
+#goal.terror .label { background: #b00f1d; color: #fff2ee; animation: blink .7s steps(2) infinite; letter-spacing: 2px; }
+#goal.terror #goal-text { text-shadow: 0 0 6px rgba(255, 40, 40, .6); }
+#goal.terror #goal-left {
+  display: block; position: absolute; left: 3px; bottom: 1px; height: 3px; width: calc((100% - 6px) * var(--left, 0));
+  background: #e0202c; transition: width .4s linear;
+}
+@keyframes terror-shake { 50% { transform: translateX(calc(-50% + 1px)) translateY(1px); } }
 @keyframes blink { 50% { opacity: .35; } }
 
 /* population: wooden ring with a dark core */

@@ -100,6 +100,42 @@ def main() -> None:
     check(w3.stage == 1 and w3.cap == 16 and any(e["type"] == "evolve" for e in snap["events"]), "evolution grows the mind to 16 rows")
     snap = run(w3, 20)
     check(len(snap["cadlets"]) > 0 and all(math.isfinite(c["val"]) for c in snap["cadlets"]), "the larger mind keeps running")
+    # TERROR: everyone bolts to where the page says, fear peaks and drains in ~33 beats, no births meanwhile
+    x0, y0, x1, y1 = w3.bounds()
+    spots = {str(t.id): [x0, t.y] for t in w3.cadlets.values()}
+
+    def ready() -> None:  # everyone able to split this very beat, if terror allowed it
+        for t in w3.cadlets.values():
+            t.content, t.age, t.last_split, t.sick, t.held = 99, 99, -999, 0, False
+            t.hunger = t.dirt = t.boredom = 0.1
+            t.hp = 1.0
+
+    born = w3.stats["born"]
+    w3.apply({"type": "terror", "spots": spots})
+    check(all(abs(t.x - x0) < 1e-6 and t.fear == 1.0 for t in w3.cadlets.values()), "terror sends everyone to the forest edge, terrified")
+    ready()
+    snap = run(w3, 1)
+    check(any(e["type"] == "terror" for e in snap["events"]) and snap["terror"] > 0, "terror is reported")
+    # the hand comes near a terrified Cadlet: it bolts away from it, screaming
+    t = next(iter(w3.cadlets.values()))
+    t.x, t.y = w3.cx, w3.cy
+    w3.apply({"type": "hand", "x": t.x + 1.5, "y": t.y, "present": True})
+    ready()
+    snap = run(w3, 1)
+    me = next(c for c in snap["cadlets"] if c["id"] == t.id)
+    check(t.x < w3.cx - 3 and me["s"] == "flee" and "scream" in me["ev"], "a terrified Cadlet bolts from the hand, screaming")
+    w3.apply({"type": "hand", "x": 0, "y": 0, "present": False})
+    while w3.beat < w3.terror_until - 1:  # up to the last beat of terror
+        ready()
+        run(w3, 1)
+    check(w3.stats["born"] == born, "nobody is born during terror")
+    check(all(t.fear < 0.1 for t in w3.cadlets.values()), "terror has drained after about a minute")
+    for _ in range(3):
+        ready()
+        run(w3, 1)
+    check(w3.stats["born"] > born, "births resume after terror")
+    blob = w3.save()
+    check(cadlets.World.load(blob).terror_until == w3.terror_until, "terror survives a save")
     w3.apply({"type": "glitch"})
     snap = run(w3, 1)
     check(w3.glitch and any(tr.data.get("glitched") for tr in w3._of("tree")), "the glitch corrupts fruit trees")

@@ -21,11 +21,12 @@ You start with one egg. Click it to hatch it sooner, or wait.
 | **Hand** (1) | Hover: the Cadlets can see your hand. Click a Cadlet: pet it, and open its mind. Drag it: pick it up. Drag it fast and let go: throw it, and it gets hurt. Drag empty ground: pan. |
 | **Apple** (2) / **Ball** (3) / **Soap** (4) | Drop food (5 apples, regrowing), drop a beach ball, scrub a dirty Cadlet. An apple dropped next to a Cadlet that came to your hand is eaten straight from it. |
 | **Flick** (5) / **Crush** (6) | Click a Cadlet to knock it away (it's hurt) or to crush it (it dies). Every Cadlet nearby sees it and is frightened. |
+| **TERROR** | 15 throws and 5 crushes within one minute and the Cadence breaks: time stops, every Cadlet screams and bolts for the forest, and TERROR drips across the screen. For about a minute (33 beats) they are terrified: each one bolts screaming from your hand when it comes near, and none is born. |
 | **Build tray** | Every evolution gives you a bathtub and an apple tree to place. |
 | **MIND** (M) | The Cadence's mind: the library's diagnostics, learning curve, imagined choices, collective memory, one Cadlet's stream, language, what it thinks of you. |
 | Clock | ❚❚ / Space pauses (while paused you can look inside minds and pan, but not touch). 1× 2× 4× 8× set the speed and resume. `+`/`-` change speed too. |
 | Wheel / `0` | Zoom / reset the view. Arrow keys or WASD pan. |
-| Menu ☰ | Save, rewrite the code (trigger the glitch), lay a new egg, sound. |
+| Menu ☰ | Save, rewrite the code (trigger the glitch), lay a new egg, sound, debug report. |
 
 The Cadence autosaves to IndexedDB, and **CONTINUE THE CADENCE** resumes the same brain where it left off.
 
@@ -113,9 +114,16 @@ can see the hand choose:
 |---|---|
 | Kind (pets and feeds whoever comes) | come to the hand 74–89% of the time; "your hand is kind" learned in every run |
 | Kind, then cruel from beat 450 | trust rises to 66–78%, then falls to 2–17% |
+| Cruel, then kind from beat 450 | trust recovers fully: 60% come within 300 beats, 78% by beat 1200 |
 | Cruel from beat 300 | stop approaching; afraid ones flee up to ~33% live (38–53% imagined) in 2 of 3 runs |
 
-Fear-fleeing is the weakest of these: real, but slower and not in every run.
+Fear-fleeing is the weakest of these: real, but slower and not in every run. The Cadence holds no
+grudge: kindness wins trust back about as fast as cruelty destroys it (`tools/players.py`).
+
+TERROR is the exception to "nothing is scripted": the bolt into the forest, and the bolts from your
+hand while the terror lasts, are reflexes of the body. The brain's choice is not carried out on those
+beats and nothing is credited to it; what the mind does learn from is the terror itself (fear at its
+height, draining over the 33 beats, and a shock on whatever each one was doing).
 
 A save/load continues identically. Settling and learning cost ~25 ms per beat at 8 bodies and
 ~50 ms at 48 bodies in Chrome/WebAssembly.
@@ -123,16 +131,37 @@ A save/load continues identically. Settling and learning cost ~25 ms per beat at
 Limits: competence is clearly above chance but far from perfect; crowding causes starvation; the
 language rarely gets past a word or two.
 
+## When something goes wrong
+
+The game keeps a flight recorder (`js/log.js`): every error (page, render loop, mind panel,
+the Python simulation with its full traceback, the worker failing to load) and a trail of notable
+events (boot and versions, saves, evolutions, lessons, the glitch, the player's pauses, speed changes,
+throws, flicks and crushes). Repeats are counted, not repeated. It survives a reload in the same
+browser (localStorage, the last 400 entries). A watchdog notes when no beat has arrived for a while,
+and slow beats are counted.
+
+- **Menu ☰ → DEBUG REPORT** downloads one JSON file: the log, the game's state, the browser and
+  screen, and, if the simulation still answers, a save of that exact moment.
+- `python tools/replay.py cadlets-debug-….json --beats 100` prints the report's warnings and errors,
+  loads the save natively and runs it on, so a simulation bug can be reproduced under a debugger.
+- In the browser console: `cadlets.log.all()` shows the log, `cadlets.log.download()` saves it.
+
+A broken frame no longer stops the picture: the render loop logs the error and draws the next one.
+
 ## Layout
 
 ```
 index.html, css/, js/          the game: rendering, HUD, input, audio, mind panel
 js/worker.js                   Pyodide host; JSON in, JSON out
+js/log.js                      flight recorder and debug reports
+js/terror.js                   the TERROR scene
 py/cadlets.py                  the world and the Cadence integration (runs natively too)
 assets/sprites.json            pixel art (from tools/make_sprites.py)
 vendor/                        Pyodide 0.27.7 core, NumPy wheel, Cadence wheel
 tools/headless.py, tune.py     learning curves and parameter sweeps without a browser
 tools/smoke.py                 quick checks of every player event, save/load, evolution
+tools/replay.py                replay a debug report's save natively
+tools/players.py               simulated kind, cruel and changing players
 tools/make_sprites.py          edit and preview the sprites
 ```
 

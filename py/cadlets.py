@@ -70,6 +70,9 @@ TUNE = {
     "hand_gift": 0.15,     # extra joy of being fed from the hand
     "pet": 0.4,            # joy of being petted
     "curiosity": 0.25,     # reward for reaching the hand while it is still novel
+    "terror_beats": 33,    # TERROR: beats until the panic fades (about a minute at 1x); no births meanwhile
+    "terror_shock": 0.5,   # the outcome felt when the Cadence breaks in terror
+    "terror_reach": 8.0,   # during TERROR, a hand this close (tiles) sends a Cadlet bolting, screaming
     "glitch_beat": 600,   # the code rewrites itself once the Cadence has reached stage 2 and this beat
     "metabolism": [1.0, 1.1, 1.2, 1.3],  # need growth multiplier per evolution stage
     "regrow": 2,          # beats per new fruit on a tree
@@ -187,6 +190,8 @@ class Cadlet:
     last_split: int = -10_000
     hurt_by_hand: int = -10_000
     fear: float = 0.0             # felt need: the hand has hurt us
+    terror: int = 0               # beats of TERROR left; fear drains within them
+    last_scream: int = -10_000    # beat of its last scream (TERROR)
     curiosity: float = 1.0        # how interesting the hand still is
     births: int = 0
     events: list[str] = field(default_factory=list)  # visual events this beat
@@ -214,6 +219,7 @@ class World:
         self.hand: tuple[float, float] | None = None
         self.glitch = False
         self.glitch_beat: int | None = None
+        self.terror_until = 0                       # no births before this beat (TERROR)
         self.started = False                        # brain has issued a first action
         self.pending_done = np.zeros(self.cap, bool)
         self.pending_reward = np.zeros(self.cap)
@@ -222,7 +228,7 @@ class World:
         self.stats = {
             "born": 0, "died": 0, "deaths": {}, "glitched_eaten": 0, "pets": 0, "flings": 0,
             "player_apples": 0, "player_soap": 0, "max_pop": 0, "splits": 0, "refusals": 0,
-            "crushed": 0, "hand_fed": 0,
+            "crushed": 0, "hand_fed": 0, "terrors": 0,
         }
         self.history: list[dict[str, float]] = []   # one row per 10 beats
         self.window = {"urgent": 0, "right": 0, "eat_glitched": 0, "glitched_seen": 0,
@@ -385,6 +391,8 @@ class World:
                     self._fright(t, TUNE["fright"] * 0.6)
         elif kind == "glitch":
             self._start_glitch()
+        elif kind == "terror":
+            self._terror(event.get("spots") or {})
 
     def _fright(self, victim: Cadlet, strength: float) -> None:
         """Everyone near the victim feels a jolt of fear (a negative outcome of their own choice)."""
@@ -397,6 +405,28 @@ class World:
                 o.reward -= strength * k
                 o.fear = _clip01(o.fear + 1.5 * strength * k)
                 o.events.append("fright")
+
+    def _terror(self, spots: dict[str, list[float]]) -> None:
+        """Too much cruelty too fast: the Cadence breaks and every body bolts for the forest.
+
+        The bolt is a reflex of the body (the page animates it and says where each one ended
+        up), not a choice of the mind, so no behaviour is credited with the running. What the
+        mind does get is the terror itself: fear at its height, fading over about a minute, and
+        a shock that lands on whatever each one was doing, as when it sees a crush. Nobody is
+        born until the terror has passed.
+        """
+        self.stats["terrors"] += 1
+        self.terror_until = self.beat + TUNE["terror_beats"]
+        for t in self.cadlets.values():
+            spot = spots.get(str(t.id))
+            if spot and not t.held:
+                t.x, t.y = self._inside(float(spot[0]), float(spot[1]))
+            t.fear = 1.0
+            t.terror = TUNE["terror_beats"]
+            t.content = 0
+            t.reward -= TUNE["terror_shock"]
+            t.events.append("terror")
+        self.events.append({"type": "terror", "n": len(self.cadlets)})
 
     def _start_glitch(self) -> None:
         if self.glitch:
@@ -485,6 +515,11 @@ class World:
             t.sick -= 1
             t.state = "sick"
             return
+        if t.terror > 0 and self.hand is not None:
+            d = math.hypot(t.x - self.hand[0], t.y - self.hand[1])
+            if d < TUNE["terror_reach"]:
+                self._bolt(t)
+                return
         a = t.action
         if a == EAT:
             food, d = self._food(t)
@@ -606,6 +641,32 @@ class World:
         else:
             self._wander(t)
 
+    def _bolt(self, t: Cadlet) -> None:
+        """TERROR reflex: away from the hand, screaming.
+
+        The body does this, not the mind: whatever the brain chose is not carried out, and
+        the running neither costs effort nor relieves fear, so no choice is credited with it.
+        Cornered against the forest, it slides along the edge, whichever way is farther.
+        """
+        hx, hy = self.hand
+        dx, dy = t.x - hx, t.y - hy
+        n = math.hypot(dx, dy)
+        if n < 1e-6:
+            dx, dy, n = self.rng.uniform(-1, 1), self.rng.uniform(-1, 1), 1.0
+        ux, uy = dx / n, dy / n
+        r = TUNE["speed"] * 0.7
+        options = [(ux, uy), (-uy, ux), (uy, -ux), (ux * 0.7 - uy * 0.7, uy * 0.7 + ux * 0.7), (ux * 0.7 + uy * 0.7, uy * 0.7 - ux * 0.7)]
+        spots = [self._inside(t.x + ox * r, t.y + oy * r) for ox, oy in options] + [(t.x, t.y)]
+        x, y = max(spots, key=lambda q: math.hypot(q[0] - hx, q[1] - hy))  # never toward the hand
+        if abs(x - t.x) > 0.05:
+            t.facing = 1 if x > t.x else -1
+        t.x, t.y = x, y
+        t.target = None
+        t.state = "flee"
+        if self.beat - t.last_scream >= 2:
+            t.last_scream = self.beat
+            t.events.append("scream")
+
     def _food(self, t: Cadlet) -> tuple[Thing | None, float]:
         """The nearest edible thing: an apple on the ground or a tree with fruit."""
         pool = self._of("apple") + [tr for tr in self._of("tree") if tr.data["fruit"] > 0]
@@ -692,7 +753,12 @@ class World:
             t.hunger = _clip01(t.hunger + TUNE["hunger"] * k)
             t.dirt = _clip01(t.dirt + TUNE["dirt"] * k)
             t.boredom = _clip01(t.boredom + TUNE["boredom"] * k)
-            t.fear = max(0.0, t.fear - TUNE["fear_fade"])
+            if t.terror > 0:
+                # terror drains within terror_beats (about a minute at 1x), faster than ordinary fear
+                t.terror -= 1
+                t.fear = max(0.0, t.fear - max(TUNE["fear_fade"], 1.0 / TUNE["terror_beats"]))
+            else:
+                t.fear = max(0.0, t.fear - TUNE["fear_fade"])
             t.curiosity = min(1.0, t.curiosity + 0.004)
             if corpses and self._nearest(t.x, t.y, corpses)[1] < 3:
                 t.boredom = _clip01(t.boredom + 0.01)  # grief
@@ -709,7 +775,7 @@ class World:
             if t.hp <= 0:
                 self._death(t)
             elif (t.content >= TUNE["content_beats"] and t.age >= TUNE["min_age"] and not t.held
-                  and self.beat - t.last_split >= TUNE["cooldown"]):
+                  and self.beat - t.last_split >= TUNE["cooldown"] and self.beat >= self.terror_until):
                 self._split(t)
 
     def _cause(self, t: Cadlet) -> str:
@@ -1155,6 +1221,7 @@ class World:
             "goal": STAGES[self.stage]["goal"], "next": STAGES[self.stage]["evolve_at"],
             "cadlets": thr, "things": things, "events": self.events, "diag": self.diag,
             "stats": self.stats, "mind": mind, "handview": self.handview,
+            "terror": max(0, self.terror_until - self.beat), "terror_beats": TUNE["terror_beats"],
         }
         if full:
             out["history"] = self.history[-120:]
@@ -1201,6 +1268,7 @@ class World:
         world = {
             "seed": self.seed, "modules": list(self.modules), "stage": self.stage, "cap": self.cap,
             "beat": self.beat, "next_id": self.next_id, "glitch": self.glitch, "glitch_beat": self.glitch_beat,
+            "terror_until": self.terror_until,
             "started": self.started, "rows": self.rows, "stats": self.stats, "history": self.history,
             "lessons": self.lessons, "lexicon": self.lexicon.tolist(), "lexicon_need": self.lexicon_need.tolist(),
             "handview": self.handview,
@@ -1232,8 +1300,9 @@ class World:
         self.stage, self.cap, self.beat = world["stage"], world["cap"], world["beat"]
         self.next_id, self.glitch, self.glitch_beat = world["next_id"], world["glitch"], world["glitch_beat"]
         self.started, self.rows, self.stats = world["started"], world["rows"], world["stats"]
-        for key in ("refusals", "crushed", "hand_fed"):
+        for key in ("refusals", "crushed", "hand_fed", "terrors"):
             self.stats.setdefault(key, 0)
+        self.terror_until = world.get("terror_until", 0)
         self.history, self.lessons = world["history"], world["lessons"]
         self.handview = world.get("handview", self.handview)
         self.lexicon = np.array(world["lexicon"])

@@ -5,6 +5,8 @@ import { Renderer } from "./render.js";
 import * as ui from "./ui.js";
 import * as audio from "./audio.js";
 import { Wordmark } from "./logo.js";
+import * as log from "./log.js";
+import { playTerror } from "./terror.js";
 
 const $ = (s) => document.querySelector(s);
 const BASE_BEAT = 1800; // ms per beat at 1x: one decision, a walk, and time to act
@@ -14,8 +16,9 @@ const state = {
   ready: false, started: false, paused: false, speed: 1, tool: "hand",
   snap: null, layout: null, ms: 0, apples: 5, build: { tub: 0, tree: 0 },
   selected: null, deaths: [], lastSave: 0, seenLessons: new Set(), mindOpen: false,
-  firstSplit: false, firstDeath: false, firstKill: false, stage: 0, dialog: false,
+  firstSplit: false, firstDeath: false, firstKill: false, stage: 0, dialog: false, terror: false,
 };
+let lastBeatAt = 0, stalled = 0; // watchdog: when the last beat arrived, and since when it has been quiet
 
 const logo = new Wordmark($("#logo"), { cell: 4 });
 const fitLogo = () => logo.fit(Math.min(820, innerWidth * 0.92));
@@ -26,6 +29,27 @@ new Wordmark($("#logo-small"), { cell: 2, cadlet: false, wave: false }).fit(200)
 const canvas = $("#world");
 const renderer = new Renderer(canvas);
 const worker = new Worker("js/worker.js");
+
+// What every log line and debug report records about the moment it was written.
+log.setContext(() => {
+  const sn = state.snap;
+  return {
+    beat: sn?.beat, stage: sn?.stage, pop: sn?.cadlets.length, speed: state.speed, paused: state.paused,
+    started: state.started, tool: state.tool, mind: state.mindOpen, selected: state.selected, msPerBeat: Math.round(state.ms),
+  };
+});
+let errorShown = false;
+log.onError(() => {
+  if (errorShown || !state.started) return;
+  errorShown = true;
+  ui.toast("SOMETHING WENT WRONG<br><small>MENU ☰ → DEBUG REPORT SAVES WHAT HAPPENED</small>", { kind: "dark", icon: "i_bang", ms: 9000 });
+});
+// The worker itself failing (a file that did not load, out of memory) is not a message.
+worker.onerror = (e) => {
+  log.error("worker", `${e.message || "worker failed"} (${e.filename || "?"}:${e.lineno || 0})`);
+  if (!state.ready) $("#boot-text").textContent = "THE MIND COULD NOT LOAD · SEE MENU ☰ → DEBUG REPORT";
+};
+worker.onmessageerror = () => log.error("worker", "a message from the worker could not be read");
 
 // ------------------------------------------------------------------ persistence (IndexedDB)
 
@@ -42,13 +66,18 @@ async function dbGet(key) {
   try {
     const db = await idb();
     return await new Promise((res) => { const q = db.transaction("saves").objectStore("saves").get(key); q.onsuccess = () => res(q.result); q.onerror = () => res(null); });
-  } catch { return null; }
+  } catch (e) { log.warn("save", e); return null; }
 }
 async function dbPut(key, value) {
   try {
     const db = await idb();
-    await new Promise((res) => { const t = db.transaction("saves", "readwrite"); t.objectStore("saves").put(value, key); t.oncomplete = res; t.onerror = res; });
-  } catch { /* storage unavailable: the Cadence lives for this session only */ }
+    await new Promise((res, rej) => { const t = db.transaction("saves", "readwrite"); t.objectStore("saves").put(value, key); t.oncomplete = res; t.onerror = () => rej(t.error); });
+    return true;
+  } catch (e) {
+    // storage unavailable or full: the Cadence lives for this session only
+    log.warn("save", e || "the save could not be stored");
+    return false;
+  }
 }
 
 function requestSave(reason) {
@@ -60,6 +89,7 @@ function requestSave(reason) {
 
 function send(event) { worker.postMessage({ type: "event", event }); }
 function setPaused(p) {
+  if (!p) { lastBeatAt = performance.now(); stalled = 0; } // a pause is not a stall
   state.paused = p;
   worker.postMessage({ type: "pause", paused: p });
   const btn = $("#pause-btn");
@@ -72,6 +102,7 @@ function setPaused(p) {
   markSpeed();
 }
 function setSpeed(k) {
+  if (state.started && k !== state.speed) log.info("player", `speed ${k}x`);
   state.speed = k;
   worker.postMessage({ type: "speed", beatMs: BASE_BEAT / k });
   markSpeed();
@@ -99,6 +130,7 @@ worker.onmessage = (ev) => {
     $("#boot-bar").style.width = m.pct + "%";
     $("#boot-text").textContent = m.text;
   } else if (m.type === "ready") {
+    log.info("boot", m.versions, { bootMs: Math.round(m.bootMs), neurons: m.layout.neurons, parameters: m.layout.parameters });
     state.layout = m.layout;
     ui.setLayout(m.layout);
     $("#boot-text").textContent = m.versions.toUpperCase();
@@ -106,6 +138,7 @@ worker.onmessage = (ev) => {
     $("#title-buttons").classList.remove("hidden");
     onSnap(JSON.parse(m.snap), 0, true);
   } else if (m.type === "reset") {
+    log.info("sim", m.restored ? "save restored" : m.failed ? "save could not be restored; new egg" : "new Cadence", { beat: JSON.parse(m.snap).beat });
     if (m.restored) ui.toast("THE CADENCE CONTINUES", { icon: "thr", ms: 3500 });
     if (m.failed) { state.build = { tub: 0, tree: 0 }; state.apples = 5; updateBuild(); updateApples(); }
     state.layout = m.layout;
@@ -116,15 +149,22 @@ worker.onmessage = (ev) => {
     renderer.snap = null;
     onSnap(JSON.parse(m.snap), 0, true);
   } else if (m.type === "snap") {
+    if (!m.still) {
+      lastBeatAt = performance.now();
+      if (stalled) { log.info("sim", `beats resumed after ${((lastBeatAt - stalled) / 1000).toFixed(1)} s`); stalled = 0; }
+      if (m.ms > BASE_BEAT / state.speed) log.warn("sim", "a beat took longer than the beat itself", { ms: Math.round(m.ms) });
+    }
     onSnap(JSON.parse(m.snap), m.ms, !!m.still);
   } else if (m.type === "saved") {
+    if (m.reason === "debug") { debugReport(m.bytes); return; }
     dbPut("cadence", { bytes: m.bytes, build: state.build, apples: state.apples, at: Date.now(), beat: state.snap?.beat || 0 });
     state.lastSave = performance.now();
-    if (m.reason === "manual") ui.toast("THE CADENCE HAS BEEN SAVED", { icon: "i_sparkle", ms: 2500 });
+    if (m.reason === "manual") { log.info("save", "saved", { bytes: m.bytes.length }); ui.toast("THE CADENCE HAS BEEN SAVED", { icon: "i_sparkle", ms: 2500 }); }
   } else if (m.type === "warn") {
+    log.warn("sim", m.text);
     ui.toast(m.text, { kind: "dark", ms: 6000 });
   } else if (m.type === "error") {
-    console.error(m.text);
+    log.error("sim", m.text, { during: m.during });
     if (state.started) setPaused(true); // the worker stopped; ▶ tries again
     ui.toast("THE SIMULATION STALLED · SEE CONSOLE", { kind: "dark", icon: "i_bang", ms: 8000 });
   }
@@ -152,9 +192,16 @@ function onSnap(snap, ms, still) {
 }
 
 function events(snap) {
+  let screams = 0;
   for (const t of snap.cadlets) {
     if (t.v && Math.random() < 0.35) audio.chirp(t.v, t.id, pan(t.x));
     for (const e of t.ev) {
+      if (e === "scream" && screams < 6) {
+        // a crowd bolting from the hand: staggered, each its own voice, quieter the more there are
+        screams += 1;
+        audio.scream(pan(t.x), 0.8 + ((t.id * 37) % 9) / 16, Math.random() * 0.45, 0.75);
+        continue;
+      }
       if (e === "eat") audio.sfx.eat(pan(t.x));
       else if (e === "splash") audio.sfx.splash(pan(t.x));
       else if (e === "kick") audio.sfx.kick(pan(t.x));
@@ -185,15 +232,21 @@ function events(snap) {
     } else if (e.type === "lesson") {
       if (!state.seenLessons.has(e.key)) {
         state.seenLessons.add(e.key);
+        log.info("sim", `lesson: ${e.key}`);
         ui.lessonToast(e.key);
         audio.sfx.lesson();
         $("#mind-btn").classList.remove("pulse"); void $("#mind-btn").offsetWidth; $("#mind-btn").classList.add("pulse");
       }
     } else if (e.type === "evolve") {
+      log.info("sim", `evolved to stage ${e.stage} (${e.cap} bodies)`);
       evolve(e, snap);
     } else if (e.type === "relay") {
+      log.info("sim", "extinct; a new egg for the same mind");
       ui.toast("THE CADENCE IS GONE · BUT ITS MIND REMEMBERS<br><small>A NEW EGG HOLDS EVERYTHING IT LEARNED</small>", { icon: "egg", kind: "dark", ms: 8000 });
+    } else if (e.type === "terror") {
+      log.info("sim", `terror: ${e.n} Cadlets fled; no births for ${snap.terror} beats`);
     } else if (e.type === "glitch") {
+      log.info("sim", "the code rewrote itself");
       audio.sfx.glitch();
       ui.glitchFlash(1100);
       setTimeout(() => ui.toast("THE CODE IS REWRITING ITSELF", { kind: "dark", icon: "i_poison", ms: 7000 }), 600);
@@ -325,7 +378,7 @@ canvas.addEventListener("pointerleave", () => {
 
 canvas.addEventListener("pointerdown", (e) => {
   audio.unlock();
-  if (!state.started) return;
+  if (!state.started || state.dialog) return;
   try { canvas.setPointerCapture(e.pointerId); } catch { /* not an active pointer */ }
   const w = worldAt(e);
   const id = renderer.pick(w.x, w.y);
@@ -388,6 +441,8 @@ canvas.addEventListener("pointerup", (e) => {
       const ly = Math.min(b[3], Math.max(b[1], w.y + vy * 0.22 + 1.4));
       renderer.held = null;
       if (speed > 9) {
+        log.info("player", `throw ${id}`);
+        cruel("throw");
         renderer.flying.set(id, { x0: w.x, y0: w.y + 1.4, x1: lx, y1: ly, t0: performance.now(), dur: 380, arc: 1.4 });
         send({ type: "drop", id, x: lx, y: ly, speed: speed / 5 });
         setTimeout(() => { audio.sfx.hurt(pan(lx)); renderer.burst("blood", lx, ly, 6); }, 380);
@@ -426,6 +481,7 @@ canvas.addEventListener("lostpointercapture", () => { if (renderer.held) cancelD
 function startCrush(id) {
   const p = renderer.posOf(id);
   if (!p) return;
+  log.info("player", `crush ${id}`);
   send({ type: "pickup", id }); // it can no longer walk away
   renderer.squeeze = { id, t0: performance.now(), ms: CRUSH_MS, x: p.x, y: p.y };
   audio.sfx.squeak(pan(p.x));
@@ -434,6 +490,8 @@ function startCrush(id) {
     clearInterval(squeak);
     renderer.squeeze = null;
     send({ type: "crush", id });
+    crushedIds.add(id);
+    cruel("kill");
     audio.sfx.crush(pan(p.x));
     renderer.burst("blood", p.x, p.y, 14);
     ui.glitchFlash(220);
@@ -444,6 +502,8 @@ function startCrush(id) {
 function flick(id, w) {
   const p = renderer.posOf(id);
   if (!p) return;
+  log.info("player", `flick ${id}`);
+  cruel("throw");
   const b = state.snap.bounds;
   let dx = p.x - w.x, dy = p.y - 0.6 - w.y;
   const d = Math.hypot(dx, dy) || 1;
@@ -455,6 +515,65 @@ function flick(id, w) {
   send({ type: "drop", id, x: lx, y: ly, speed: 3 });
   audio.sfx.kick(pan(p.x));
   setTimeout(() => { audio.sfx.hurt(pan(lx)); renderer.burst("blood", lx, ly, 5); }, 420);
+}
+
+// ------------------------------------------------------------------ TERROR
+// Too much cruelty too fast and the Cadence breaks: every Cadlet screams and bolts for the
+// forest, and blood floods the screen. Counted in real time, so it is felt at any speed.
+const TERROR = { throws: 15, kills: 5, windowMs: 60_000 }; // both, within one rolling minute
+const cruelty = [];           // {t, kind} of recent throws (hand throws and flicks) and kills
+const crushedIds = new Set(); // just crushed: the dead do not run
+function cruel(kind) {
+  const now = performance.now();
+  cruelty.push({ t: now, kind });
+  while (cruelty.length && now - cruelty[0].t > TERROR.windowMs) cruelty.shift();
+  const throws = cruelty.filter((c) => c.kind === "throw").length;
+  const kills = cruelty.length - throws;
+  if (throws >= TERROR.throws && kills >= TERROR.kills && !state.terror) {
+    cruelty.length = 0; // the next one takes another minute of it
+    terror({ throws, kills });
+  }
+}
+
+async function terror(counts = {}) {
+  if (!state.started || state.terror || !state.snap) return;
+  state.terror = true;
+  const first = !(state.snap.stats.terrors > 0); // the full scene once per Cadence, shorter after
+  log.info("player", "TERROR", counts);
+  const wasPaused = state.paused;
+  state.dialog = true;
+  setPaused(true); // time stops while the scene plays; the world learns of it after
+  cancelDrag();
+  const now = performance.now();
+  const b = state.snap.bounds;
+  const spots = {};
+  const ids = [...renderer.bodies.keys()].filter((id) => !crushedIds.has(id));
+  const spread = Math.min(1000, 300 + 14 * ids.length);
+  const vol = Math.min(1, Math.sqrt(8 / Math.max(1, ids.length)));
+  for (const id of ids) {
+    const p = renderer.posOf(id, now);
+    if (!p) continue;
+    // the nearest edge of the clearing, spread out a little along it
+    const edges = [[b[0], p.y], [b[2], p.y], [p.x, b[1]], [p.x, b[3]]];
+    let [x, y] = edges.reduce((a, e) => (Math.hypot(e[0] - p.x, e[1] - p.y) < Math.hypot(a[0] - p.x, a[1] - p.y) ? e : a));
+    if (x === b[0] || x === b[2]) y = Math.min(b[3], Math.max(b[1], y + (Math.random() - 0.5) * 2.4));
+    else x = Math.min(b[2], Math.max(b[0], x + (Math.random() - 0.5) * 2.4));
+    const delay = 100 + Math.random() * spread;
+    renderer.flying.delete(id);
+    renderer.panic.set(id, { x0: p.x, y0: p.y, x1: x, y1: y, t0: now + delay, dur: 700 + Math.hypot(x - p.x, y - p.y) * 45 });
+    spots[id] = [Math.round(x * 100) / 100, Math.round(y * 100) / 100];
+    audio.scream(pan(p.x), 0.8 + ((id * 37) % 9) / 16, delay / 1000, vol); // each its own voice
+  }
+  renderer.quake = { until: now + 900, ms: 900, amp: 3 };
+  audio.sfx.terror();
+  ui.glitchFlash(first ? 900 : 500);
+  await playTerror({ first });
+  send({ type: "terror", spots });
+  crushedIds.clear();
+  state.dialog = false;
+  state.terror = false;
+  setPaused(wasPaused);
+  ui.toast("THEY FLED FROM YOU<br><small>NO CADLET WILL BE BORN UNTIL THEIR TERROR FADES</small>", { icon: "i_skull", kind: "dark", ms: 7000 });
 }
 
 const scrubbed = new Map();
@@ -493,7 +612,11 @@ document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () 
 }));
 $("#tray-btn").addEventListener("click", () => { audio.sfx.click(); $("#tray").classList.toggle("closed"); });
 document.querySelectorAll("#speeds .chip").forEach((b) => b.addEventListener("click", () => { audio.sfx.click(); setSpeed(+b.dataset.speed); if (state.paused) setPaused(false); }));
-$("#pause-btn").addEventListener("click", () => { audio.sfx.click(); setPaused(!state.paused); });
+$("#pause-btn").addEventListener("click", () => { audio.sfx.click(); togglePause(); });
+function togglePause() {
+  setPaused(!state.paused);
+  log.info("player", state.paused ? "pause" : "resume");
+}
 
 function toggleMind(on) {
   state.mindOpen = on ?? !state.mindOpen;
@@ -522,17 +645,21 @@ $("#menu").addEventListener("click", async (e) => {
   else if (act === "glitch") {
     $("#menu").classList.add("hidden");
     const ok = await modal("Rewrite the code?<br><small>A third of the fruit trees will turn corrupt. The Cadence will have to notice, and repair what it knows.</small>", [{ label: "Yes", value: true }, { label: "No", value: false }]);
-    if (ok) send({ type: "glitch" });
+    if (ok) { log.info("player", "rewrite the code"); send({ type: "glitch" }); }
   } else if (act === "new") {
     $("#menu").classList.add("hidden");
     const ok = await modal("Lay a new egg?<br><small>This Cadence and everything it has learned will be lost.</small>", [{ label: "Yes", value: true }, { label: "No", value: false }]);
     if (ok) {
+      log.info("player", "lay a new egg");
       state.build = { tub: 0, tree: 0 }; state.apples = 5; updateBuild(); updateApples();
       state.firstDeath = state.firstSplit = state.firstKill = false;
       select(null);
       worker.postMessage({ type: "new" });
       setTimeout(() => requestSave("auto"), 1500);
     }
+  } else if (act === "debug") {
+    $("#menu").classList.add("hidden");
+    requestDebugReport();
   } else if (act === "about") {
     $("#menu").classList.add("hidden");
     about();
@@ -565,7 +692,7 @@ window.addEventListener("keydown", (e) => {
   else if (k === "4") setTool("soap");
   else if (k === "5") setTool("flick");
   else if (k === "6") setTool("crush");
-  else if (k === " ") { e.preventDefault(); setPaused(!state.paused); }
+  else if (k === " ") { e.preventDefault(); togglePause(); }
   else if (k === "m") toggleMind();
   else if (k === "escape") { toggleMind(false); $("#menu").classList.add("hidden"); select(null); setTool("hand"); }
   else if (k === "+" || k === "=") setSpeed(Math.min(8, state.speed * 2));
@@ -592,15 +719,50 @@ canvas.addEventListener("wheel", (e) => {
 // ------------------------------------------------------------------ frame loop
 
 function loop(now) {
-  renderer.frame(now);
-  updateLabels(now);
+  // Never let one bad frame stop the picture: log it and draw the next one.
+  try {
+    renderer.frame(now);
+    updateLabels(now);
+  } catch (e) {
+    log.error("render", e);
+  }
   requestAnimationFrame(loop);
+}
+
+// Watchdog: the worker should answer every beat; say so when it has gone quiet.
+setInterval(() => {
+  if (!state.started || state.paused || state.dialog || !lastBeatAt || stalled) return;
+  const quiet = performance.now() - lastBeatAt;
+  if (quiet > Math.max(8000, 5 * BASE_BEAT / state.speed)) {
+    stalled = lastBeatAt;
+    log.warn("sim", `no beat for ${(quiet / 1000).toFixed(1)} s`);
+  }
+}, 2000);
+
+// Debug report: the log plus, when the worker can still answer, a save of this exact
+// moment (tools/replay.py runs it natively).
+let debugTimer = null;
+function requestDebugReport() {
+  log.info("player", "debug report");
+  if (!state.ready) { log.download(); return; }
+  worker.postMessage({ type: "save", reason: "debug" });
+  debugTimer = setTimeout(() => { debugTimer = null; log.warn("sim", "no save for the debug report (worker busy or gone)"); log.download(); }, 4000);
+}
+function debugReport(bytes) {
+  if (!debugTimer) return;
+  clearTimeout(debugTimer);
+  debugTimer = null;
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  log.download({ save: { beat: state.snap?.beat, base64: btoa(bin) } });
+  ui.toast("DEBUG REPORT DOWNLOADED", { icon: "i_sparkle", ms: 3000 });
 }
 
 // ------------------------------------------------------------------ boot
 
 async function start(save) {
   audio.unlock();
+  log.info("player", save ? `continue (beat ${save.beat || 0})` : "new Cadence");
   $("#title-buttons").classList.add("hidden");
   if (save) {
     state.build = save.build || state.build;
@@ -651,4 +813,4 @@ canvas.addEventListener("click", (e) => {
 
 boot();
 void sprite;
-window.cadlets = { renderer, state, send }; // for poking around in the console
+window.cadlets = { renderer, state, send, log, worker, terror }; // for poking around in the console

@@ -16,6 +16,7 @@
   <div id="labels"></div>
   <div id="crt" aria-hidden="true"></div>
   <div id="glitch" aria-hidden="true"></div>
+  <canvas id="terror" class="hidden" aria-hidden="true"></canvas>
 
   <!-- HUD -->
   <div id="hud" class="hidden">
@@ -27,7 +28,7 @@
       </div>
     </div>
 
-    <div id="goal"><span class="label">GOAL</span><span id="goal-text">HATCH THE EGG</span></div>
+    <div id="goal"><span class="label" id="goal-label">GOAL</span><span id="goal-text">HATCH THE EGG</span><i id="goal-left"></i></div>
     <div id="toasts"></div>
     <div id="paused" class="hidden">PAUSED · SPACE OR ▶ TO RESUME</div>
 
@@ -81,6 +82,7 @@
     <button data-act="save">SAVE THE CADENCE</button>
     <button data-act="glitch">REWRITE THE CODE</button>
     <button data-act="new">LAY A NEW EGG</button>
+    <button data-act="debug" title="Downloads a file with what happened, to attach to a bug report">DEBUG REPORT</button>
     <button data-act="about">ABOUT</button>
     <button data-act="close">CLOSE</button>
   </div>
