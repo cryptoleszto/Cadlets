@@ -259,7 +259,10 @@ function hiCanvas(c) {
 }
 
 // How often a pressing need gets the right answer, next to what random choices would score
-// in exactly the same situations (the sim counts both). Pooled over 60 beats.
+// in exactly the same situations (the sim counts both). Pooled over 60 beats; when needs
+// rarely press (a small colony that looks after itself), a point reaches further back, up to
+// 300 beats, until it holds at least 6 such choices, so the lines do not break.
+const POOL_ROWS = 6, POOL_MAX_ROWS = 30, POOL_MIN_URGENT = 6; // history rows are 10 beats each
 function chart(snap) {
   const { g, w, h } = hiCanvas($("#m-chart"));
   const hist = snap.history || [];
@@ -267,12 +270,16 @@ function chart(snap) {
   g.fillStyle = "#0e1812"; g.fillRect(0, 0, w, h);
   g.font = "11px VT323, monospace";
   const pooled = hist.map((_, i) => {
-    const win = hist.slice(Math.max(0, i - 5), i + 1);
-    const urgent = win.reduce((a, q) => a + (q.urgent ?? 0), 0);
-    if (urgent < 6) return null;
-    const right = win.reduce((a, q) => a + (q.right ?? 0), 0);
-    // older saves did not count chance; one choice in eight is what it was before
-    const chance = win.reduce((a, q) => a + (q.chance ?? (q.urgent ?? 0) / 8), 0);
+    let urgent = 0, right = 0, chance = 0;
+    for (let j = i; j >= 0 && i - j < POOL_MAX_ROWS; j--) {
+      const q = hist[j];
+      urgent += q.urgent ?? 0;
+      right += q.right ?? 0;
+      // older saves did not count chance; one choice in eight is what it was before
+      chance += q.chance ?? (q.urgent ?? 0) / 8;
+      if (i - j >= POOL_ROWS - 1 && urgent >= POOL_MIN_URGENT) break;
+    }
+    if (urgent < POOL_MIN_URGENT) return null;
     return { you: right / urgent, chance: chance / urgent };
   });
   const seen = pooled.filter(Boolean);
