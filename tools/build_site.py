@@ -6,12 +6,18 @@ copied: the pages, css/, js/, assets/, py/cadlets.py, vendor/ (with the Cadence 
 wasm32 patch), site.json and _headers, plus _redirects when that file exists (the hard maintenance
 block). The tools, README and local server stay out.
 
+The deployed site.json gets a "build": a fingerprint of every other file in the build. A game that
+has been open a while compares it with the one it loaded, and offers to reload when a new version
+is live (js/main.js). Changing only site.json (the maintenance switch) keeps the fingerprint.
+
 The build fails (exit 1) if a file is over Cloudflare's 25 MiB limit, if there are more files than
 it allows, or if a page, stylesheet or script refers to a local file that is not in the build.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import shutil
 import sys
@@ -69,6 +75,14 @@ def problems() -> list[str]:
     return out
 
 
+def fingerprint() -> str:
+    """A short hash of every file in the build except site.json (paths and contents)."""
+    h = hashlib.sha256()
+    for p in sorted(q for q in DIST.rglob("*") if q.is_file() and q.name != "site.json"):
+        h.update(p.relative_to(DIST).as_posix().encode() + b"\0" + p.read_bytes() + b"\0")
+    return h.hexdigest()[:12]
+
+
 def main() -> int:
     if DIST.exists():
         shutil.rmtree(DIST)
@@ -79,9 +93,13 @@ def main() -> int:
         if (ROOT / rel).exists():
             copy(rel)
             print(f"note: {rel} is included (the hard maintenance block is ON)")
+    site = DIST / "site.json"
+    data = json.loads(site.read_text(encoding="utf-8"))
+    data["build"] = fingerprint()
+    site.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     files = [p for p in DIST.rglob("*") if p.is_file()]
     size = sum(p.stat().st_size for p in files)
-    print(f"dist/: {len(files)} files, {size / 2**20:.1f} MiB")
+    print(f"dist/: {len(files)} files, {size / 2**20:.1f} MiB, build {data['build']}")
     bad = problems()
     for line in bad:
         print("error:", line)

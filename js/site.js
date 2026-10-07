@@ -1,7 +1,8 @@
 // The site's switch and the visitor's save, shared by the landing page and the game.
 //
 // site.json: {"status": "open" | "maintenance", "message": "...", "back": "...",
-//             "coming": [{"icon": sprite, "title": "...", "text": "..."}]} (the end screen's teasers).
+//             "coming": [{"icon": sprite, "title": "...", "text": "..."}]} (the end screen's teasers),
+//             and in the deployed copy "build": a fingerprint of the files (tools/build_site.py).
 // If it cannot be read (offline, missing), the site counts as open: maintenance is a
 // courtesy for players, and the game itself runs entirely in the browser.
 
@@ -21,10 +22,11 @@ export async function siteStatus() {
       status: s.status === "maintenance" ? "maintenance" : "open",
       message: String(s.message || ""),
       back: String(s.back || ""),
+      build: String(s.build || ""),
       coming: Array.isArray(s.coming) ? s.coming.filter((c) => c && c.title).slice(0, 4) : COMING,
     };
   } catch (e) {
-    return { status: "open", message: "", back: "", coming: COMING, error: String(e) };
+    return { status: "open", message: "", back: "", build: "", coming: COMING, error: String(e) };
   }
 }
 

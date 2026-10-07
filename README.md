@@ -221,6 +221,10 @@ A broken frame no longer stops the picture: the render loop logs the error and d
 - The check runs in the browser, so someone determined could still open the game. For a hard block on
   Cloudflare, also rename `_redirects.maintenance` to `_redirects` (and back afterwards).
 - If `site.json` cannot be read, the site counts as open.
+- **Updates:** the deployed `site.json` also carries a `build`, a fingerprint of the other deployed
+  files (`tools/build_site.py`). A game left open notices a new one within 5 minutes, or as soon as
+  its tab is looked at again, and offers to save and reload (on the title screen it just reloads).
+  Nobody has to clear anything: pages, scripts and the simulation are revalidated on every visit.
 - `"coming"` lists the end screen's teasers (`icon` is a sprite name, `title`, `text`); edit them
   to announce what is next without touching the code.
 

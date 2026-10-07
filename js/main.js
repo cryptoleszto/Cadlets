@@ -167,6 +167,7 @@ worker.onmessage = (ev) => {
     state.lastSave = performance.now();
     if (m.reason === "home") stored.then(() => location.assign("./"));
     if (m.reason === "closing") stored.then(closing);
+    if (m.reason === "update") stored.then(() => location.reload());
     if (m.reason === "manual") { log.info("save", "saved", { bytes: m.bytes.length }); ui.toast("THE CADENCE HAS BEEN SAVED", { icon: "i_sparkle", ms: 2500 }); }
   } else if (m.type === "warn") {
     log.warn("sim", m.text);
@@ -830,22 +831,52 @@ async function start(save) {
   requestSave("auto");
 }
 
-// ------------------------------------------------------------------ maintenance
+// ------------------------------------------------------------------ maintenance and updates
 // site.json can close the site. Closed at boot: back to the landing page, which explains.
 // Closed while playing: the Cadence is saved first, then the player is told and sent home.
-let closingShown = false;
+// Its "build" (a fingerprint of the deployed files, from tools/build_site.py) tells a page that
+// has been open a while that a new version is live. Checked every 5 minutes, and when the tab
+// is looked at again after a minute or more away.
+let closingShown = false, loadedBuild = "", updateAsked = "", lastCheck = 0;
 async function checkSite() {
   const site = await siteStatus();
+  lastCheck = performance.now();
   if (site.error) log.warn("site", site.error);
-  return site.status === "maintenance";
+  return site;
 }
-setInterval(async () => {
-  if (!state.started || closingShown || !(await checkSite())) return;
-  closingShown = true;
-  log.info("site", "maintenance began while playing");
+async function recheck() {
+  const site = await checkSite();
+  if (site.status === "maintenance") {
+    if (!state.started || closingShown) return;
+    closingShown = true;
+    log.info("site", "maintenance began while playing");
+    setPaused(true);
+    requestSave("closing");
+    return;
+  }
+  if (loadedBuild && site.build && site.build !== loadedBuild && site.build !== updateAsked) await offerUpdate(site.build);
+}
+setInterval(recheck, 5 * 60 * 1000);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && performance.now() - lastCheck > 60 * 1000) recheck();
+});
+async function offerUpdate(build) {
+  if (state.dialog || state.terror) return; // never over another dialog or TERROR: ask at the next check
+  updateAsked = build;
+  log.info("site", `a new version is live: build ${build} (this page: ${loadedBuild})`);
+  if (!state.started) { location.reload(); return; } // still on the title screen: nothing to save
+  const now = await modal(
+    `<h2>A NEW VERSION OF CADLETS</h2>The clearing has been updated.<br><small>Your Cadence is saved first, then the page reloads with the new version.</small>`,
+    [{ label: "Reload now", value: true }, { label: "Later", value: false }],
+  );
+  if (!now) {
+    ui.toast("THE NEW VERSION LOADS NEXT TIME YOU OPEN CADLETS", { icon: "i_sparkle", ms: 4000 });
+    return;
+  }
+  log.info("player", "reload for the new version");
   setPaused(true);
-  requestSave("closing");
-}, 5 * 60 * 1000);
+  requestSave("update");
+}
 async function closing() {
   await ui.dialog(
     `<h2>CADLETS IS CLOSING FOR MAINTENANCE</h2>Your Cadence has been saved in this browser.<br><small>It will be waiting when the clearing opens again.</small>`,
@@ -855,7 +886,10 @@ async function closing() {
 }
 
 async function boot() {
-  if (await checkSite()) { location.replace("./?maintenance"); return; }
+  const site = await checkSite();
+  if (site.status === "maintenance") { location.replace("./?maintenance"); return; }
+  loadedBuild = site.build;
+  if (loadedBuild) log.info("site", `build ${loadedBuild}`);
   await loadSprites();
   ui.paintIcons();
   renderer.resize();
@@ -890,4 +924,4 @@ canvas.addEventListener("click", (e) => {
 
 boot();
 void sprite;
-window.cadlets = { renderer, state, send, log, worker, terror, ending: () => ending({ beat: state.snap.beat }, state.snap) }; // for poking around in the console
+window.cadlets = { renderer, state, send, log, worker, terror, recheck, ending: () => ending({ beat: state.snap.beat }, state.snap) }; // for poking around in the console
